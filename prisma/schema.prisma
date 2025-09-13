@@ -56,13 +56,13 @@ model ExpenseLine {
   // Receipt data
   receiptUrl      String?       // Azure Blob Storage URL
   ocrProcessed    Boolean       @default(false)
-  ocrData         Json?         // Raw OCR extraction results
+  ocrData         String?       // Raw OCR extraction results as JSON string
   
-  // Type-specific metadata (stored as JSON for flexibility)
+  // Type-specific metadata (stored as JSON string for SQL Server compatibility)
   // For FUEL: { startLocation, endLocation, kilometers }
   // For LUNCH/DINNER/BREAKFAST: { customer, colleagues[] }
   // For HOTEL: { nights, location }
-  metadata        Json?
+  metadata        String?       // JSON string
   
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
