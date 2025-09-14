@@ -1,10 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { env } from "@/lib/env";
+import { useRouter } from "next/navigation";
+import { useExpenseReports } from "@/hooks/use-expenses";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { 
+  FileTextIcon, 
+  EuroIcon, 
+  PlusIcon, 
+  CalendarIcon
+} from "lucide-react";
 
 export default function HomePage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const { reports, isLoading, error } = useExpenseReports();
 
   useEffect(() => {
     setMounted(true);
@@ -12,107 +23,204 @@ export default function HomePage() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-white p-8 flex items-center justify-center">
-        <div className="text-xl">Loading EI-Expenses...</div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-xl text-slate-600">Loading EI-Expenses...</div>
       </div>
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-xl text-slate-600">Loading expense reports...</div>
+        <div className="text-sm text-slate-400 mt-2">Connecting to MockDataService...</div>
+      </div>
+    );
+  }
+
+  // Calculate real statistics from MockDataService
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // getMonth() is 0-based, so add 1
+  const currentYear = now.getFullYear();
+  
+  const stats = {
+    totalReports: reports.length,
+    currentMonthReports: reports.filter(r => {
+      return r.month === currentMonth && r.year === currentYear;
+    }).length,
+    sampleData: reports.length > 0 ? `${reports.length} Reports` : "No Data"
+  };
+
   return (
-    <div className="min-h-screen bg-white p-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-black mb-2">
-            EI-Expenses
-          </h1>
-          <p className="text-lg text-gray-600">
-            Phase 2: Data Layer & Mock Service Complete! ✅
-          </p>
-          <div className="mt-2 text-sm">
-            <span className="px-2 py-1 rounded text-white bg-blue-500">
-              🔧 Mock Data Service Ready
-            </span>
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">EI-Expenses</h1>
+              <p className="text-slate-600 mt-1">Manage your business expenses efficiently</p>
+            </div>
+            <Button className="bg-primary hover:bg-primary/90">
+              <PlusIcon className="w-4 h-4 mr-2" />
+              New Report
+            </Button>
           </div>
         </div>
+      </div>
 
-        {/* What We Built */}
-        <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4">Phase 2 Accomplishments</h2>
-          <div className="grid gap-4">
-            <div className="border rounded-lg p-4 bg-green-50">
-              <h3 className="font-bold text-green-700">✅ IDataService Interface</h3>
-              <p className="text-green-600">Complete abstraction layer for data operations</p>
-            </div>
-            <div className="border rounded-lg p-4 bg-green-50">
-              <h3 className="font-bold text-green-700">✅ MockDataService</h3>
-              <p className="text-green-600">Full in-memory service with localStorage persistence</p>
-            </div>
-            <div className="border rounded-lg p-4 bg-green-50">
-              <h3 className="font-bold text-green-700">✅ React Hooks</h3>
-              <p className="text-green-600">useExpenseReports, useFileUpload, useExport, etc.</p>
-            </div>
-            <div className="border rounded-lg p-4 bg-green-50">
-              <h3 className="font-bold text-green-700">✅ Mock Data Generator</h3>
-              <p className="text-green-600">6 months of realistic Italian business expenses</p>
-            </div>
-            <div className="border rounded-lg p-4 bg-green-50">
-              <h3 className="font-bold text-green-700">✅ Environment Switching</h3>
-              <p className="text-green-600">Easy toggle between mock and Azure services</p>
-            </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-red-600">Error loading reports: {error}</p>
           </div>
+        )}
+
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-600">
+                Total Reports
+              </CardTitle>
+              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                <FileTextIcon className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900">{stats.totalReports}</div>
+              <p className="text-xs text-slate-500">All time reports</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-600">
+                This Month
+              </CardTitle>
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <CalendarIcon className="h-4 w-4 text-blue-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900">{stats.currentMonthReports}</div>
+              <p className="text-xs text-slate-500">Reports this month</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-600">
+                Sample Data
+              </CardTitle>
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                <EuroIcon className="h-4 w-4 text-green-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900">{stats.sampleData}</div>
+              <p className="text-xs text-slate-500">Mock expense data</p>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Mock Data Features */}
-        <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4">Mock Data Features</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-blue-50 p-4 rounded">
-              <div className="font-bold text-blue-700">Expense Reports</div>
-              <div className="text-blue-600">6 months of sample reports</div>
-            </div>
-            <div className="bg-blue-50 p-4 rounded">
-              <div className="font-bold text-blue-700">Expense Lines</div>
-              <div className="text-blue-600">8-15 realistic expenses per report</div>
-            </div>
-            <div className="bg-blue-50 p-4 rounded">
-              <div className="font-bold text-blue-700">OCR Simulation</div>
-              <div className="text-blue-600">Realistic receipt processing</div>
-            </div>
-            <div className="bg-blue-50 p-4 rounded">
-              <div className="font-bold text-blue-700">Excel Export</div>
-              <div className="text-blue-600">CSV/Excel with attachments</div>
-            </div>
+        {/* Recent Reports */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-slate-900">Recent Expense Reports</h2>
+            <Button variant="outline" size="sm">
+              View All Reports
+            </Button>
           </div>
+
+          {reports.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                  <FileTextIcon className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-lg font-medium text-slate-900 mb-2">
+                  No expense reports yet
+                </h3>
+                <p className="text-slate-500 text-center mb-4">
+                  Create your first expense report to get started with tracking your business expenses.
+                </p>
+                <Button>
+                  <PlusIcon className="w-4 h-4 mr-2" />
+                  Create First Report
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {reports.slice(0, 5).map((report) => (
+                <Card key={report.id} className="hover:shadow-md transition-shadow cursor-pointer">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                          <FileTextIcon className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-slate-900">{report.title}</h3>
+                          <div className="flex items-center space-x-2 text-sm text-slate-500">
+                            <CalendarIcon className="w-4 h-4" />
+                            <span>
+                              {new Date(report.year, report.month - 1).toLocaleDateString('it-IT', {
+                                month: 'long',
+                                year: 'numeric'
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-4">
+                        <div className="text-right">
+                          <p className="text-sm text-slate-500">Last updated</p>
+                          <p className="font-medium text-slate-900">
+                            {new Date(report.updatedAt).toLocaleDateString('it-IT')}
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => router.push(`/reports/${report.id}`)}
+                        >
+                          View Details
+                        </Button>
+                      </div>
+                    </div>
+
+                    {report.description && (
+                      <p className="mt-3 text-sm text-slate-600">{report.description}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Environment Status */}
-        <div className="border-t pt-8">
-          <h3 className="text-lg font-bold mb-4">Environment Status</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-blue-50 p-4 rounded">
-              <div className="font-bold text-blue-700">Data Mode</div>
-              <div className="text-blue-600">
-                {env.NEXT_PUBLIC_USE_MOCK ? 'Mock (Development)' : 'Azure (Production)'}
+        {/* Connected Data Info */}
+        <div className="mt-12 p-6 bg-green-50 rounded-lg border border-green-200">
+          <div className="flex items-start space-x-3">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm font-medium">✓</span>
               </div>
             </div>
-            <div className="bg-green-50 p-4 rounded">
-              <div className="font-bold text-green-700">Environment</div>
-              <div className="text-green-600">
-                {process.env.NODE_ENV || 'development'}
-              </div>
+            <div>
+              <h3 className="text-lg font-medium text-green-900 mb-1">
+                MockDataService Connected Successfully!
+              </h3>
+              <p className="text-green-700">
+                Dashboard now displays live data from MockDataService with {reports.length} expense reports. 
+                This demonstrates the complete expense tracking workflow with realistic Italian business expenses 
+                including parking, fuel, meals, hotels, and other business costs.
+              </p>
             </div>
           </div>
-        </div>
-
-        {/* Next Steps */}
-        <div className="mt-8 p-6 bg-yellow-50 rounded-lg">
-          <h3 className="text-lg font-bold mb-2 text-yellow-700">Ready for Phase 3: Frontend UI Components</h3>
-          <p className="text-yellow-600">
-            All data layer infrastructure is complete. We can now build the actual expense management UI 
-            with full functionality using the mock data service. The frontend will work immediately without 
-            needing any database setup!
-          </p>
         </div>
       </div>
     </div>

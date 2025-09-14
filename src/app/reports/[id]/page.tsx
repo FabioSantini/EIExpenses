@@ -1,0 +1,296 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useExpenseLines, useFileUpload } from "@/hooks/use-expenses";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { 
+  ArrowLeftIcon,
+  PlusIcon,
+  ReceiptIcon,
+  EuroIcon,
+  CalendarIcon,
+  EditIcon,
+  TrashIcon,
+  FileTextIcon,
+  MapPinIcon,
+  UtensilsIcon,
+  CarIcon,
+  BuildingIcon
+} from "lucide-react";
+
+export default function ExpenseReportDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const reportId = params.id as string;
+  
+  const { expenses, summary, isLoading, error } = useExpenseLines(reportId);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-xl text-slate-600">Loading...</div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-xl text-slate-600">Loading expense details...</div>
+      </div>
+    );
+  }
+
+  // Helper function to get expense type icon and color
+  const getExpenseTypeIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'fuel':
+      case 'carburante':
+        return { icon: <CarIcon className="w-4 h-4" />, color: 'text-orange-600', bg: 'bg-orange-100' };
+      case 'lunch':
+      case 'dinner':
+      case 'breakfast':
+      case 'pranzo':
+      case 'cena':
+      case 'colazione':
+        return { icon: <UtensilsIcon className="w-4 h-4" />, color: 'text-green-600', bg: 'bg-green-100' };
+      case 'parking':
+      case 'parcheggio':
+        return { icon: <MapPinIcon className="w-4 h-4" />, color: 'text-blue-600', bg: 'bg-blue-100' };
+      case 'hotel':
+      case 'albergo':
+        return { icon: <BuildingIcon className="w-4 h-4" />, color: 'text-purple-600', bg: 'bg-purple-100' };
+      default:
+        return { icon: <ReceiptIcon className="w-4 h-4" />, color: 'text-slate-600', bg: 'bg-slate-100' };
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => router.push('/')}
+              >
+                <ArrowLeftIcon className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900">Expense Report Details</h1>
+                <p className="text-slate-600 mt-1">Manage individual expense items</p>
+              </div>
+            </div>
+            <Button className="bg-primary hover:bg-primary/90">
+              <PlusIcon className="w-4 h-4 mr-2" />
+              Add Expense
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-red-600">Error loading expenses: {error}</p>
+          </div>
+        )}
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-600">
+                Total Amount
+              </CardTitle>
+              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                <EuroIcon className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900">
+                €{summary.totalAmount.toFixed(2)}
+              </div>
+              <p className="text-xs text-slate-500">Total expenses</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-600">
+                Total Items
+              </CardTitle>
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <FileTextIcon className="h-4 w-4 text-blue-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900">{summary.count}</div>
+              <p className="text-xs text-slate-500">Expense entries</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-600">
+                With Receipts
+              </CardTitle>
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                <ReceiptIcon className="h-4 w-4 text-green-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900">{summary.withReceipts}</div>
+              <p className="text-xs text-slate-500">Have receipt photos</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-600">
+                Report ID
+              </CardTitle>
+              <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center">
+                <FileTextIcon className="h-4 w-4 text-slate-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-mono text-slate-900">
+                {reportId.substring(0, 8)}...
+              </div>
+              <p className="text-xs text-slate-500">Truncated ID</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Expense Lines */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-slate-900">Expense Items</h2>
+            <div className="flex space-x-2">
+              <Button variant="outline" size="sm">
+                Export Excel
+              </Button>
+              <Button size="sm">
+                <PlusIcon className="w-4 h-4 mr-2" />
+                Add Expense
+              </Button>
+            </div>
+          </div>
+
+          {expenses.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                  <ReceiptIcon className="h-8 w-8 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-medium text-slate-900 mb-2">
+                  No expenses yet
+                </h3>
+                <p className="text-slate-500 text-center mb-4">
+                  Start adding expenses to this report by uploading receipts or entering them manually.
+                </p>
+                <Button>
+                  <PlusIcon className="w-4 h-4 mr-2" />
+                  Add First Expense
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {expenses.map((expense) => {
+                const typeInfo = getExpenseTypeIcon(expense.type);
+                return (
+                  <Card key={expense.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className={`w-12 h-12 ${typeInfo.bg} rounded-lg flex items-center justify-center`}>
+                            <span className={typeInfo.color}>{typeInfo.icon}</span>
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-slate-900">{expense.description}</h3>
+                            <div className="flex items-center space-x-4 text-sm text-slate-500 mt-1">
+                              <div className="flex items-center space-x-1">
+                                <CalendarIcon className="w-4 h-4" />
+                                <span>{expense.date.toLocaleDateString('it-IT')}</span>
+                              </div>
+                              <span className="px-2 py-1 bg-slate-100 rounded text-xs font-medium">
+                                {expense.type}
+                              </span>
+                              {expense.receiptUrl && (
+                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                                  Has Receipt
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-4">
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-slate-900">
+                              €{expense.amount.toFixed(2)}
+                            </p>
+                            <p className="text-sm text-slate-500">{expense.currency}</p>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button variant="outline" size="sm">
+                              <EditIcon className="w-4 h-4" />
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <TrashIcon className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {expense.metadata && (
+                        <div className="mt-4 pt-4 border-t text-sm text-slate-600">
+                          <strong>Additional Info:</strong> {expense.metadata}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Test Data Info */}
+        {expenses.length > 0 && (
+          <div className="mt-12 p-6 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">ℹ</span>
+                </div>
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-blue-900 mb-1">
+                  Expense Line Management Active
+                </h3>
+                <p className="text-blue-700">
+                  This interface shows individual expense items within the report. You can view, edit, and manage 
+                  each expense entry with details like type, amount, date, and receipt attachments.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

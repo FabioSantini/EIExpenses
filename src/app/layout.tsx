@@ -1,5 +1,6 @@
 import "./globals.css";
 import { DataServiceProvider } from "@/services/data-service-provider";
+import { Toaster } from "@/components/ui/toaster";
 
 export const metadata = {
   title: "EI-Expenses",
@@ -16,6 +17,7 @@ export default function RootLayout({
       <body>
         <DataServiceProvider>
           {children}
+          <Toaster />
         </DataServiceProvider>
       </body>
     </html>

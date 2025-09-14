@@ -55,6 +55,8 @@ export class MockDataGenerator {
         "July", "August", "September", "October", "November", "December"
       ];
 
+      // We need to calculate totalAmount and lineCount, but we can't call generateExpenseLines here
+      // because it would create infinite recursion. Let's add them as default values and calculate later.
       reports.push({
         id: `report_${year}_${month}`,
         userId: "user_1",
@@ -62,6 +64,9 @@ export class MockDataGenerator {
         month: month,
         year: year,
         description: `Business expenses for ${monthNames[month - 1]} ${year}`,
+        status: i < 2 ? "draft" : i < 4 ? "submitted" : "approved",
+        totalAmount: 0, // Will be calculated later
+        lineCount: 0, // Will be calculated later
         exportedAt: i === 2 ? new Date(year, month - 1, 28) : undefined, // Some exported
         createdAt: new Date(year, month - 1, 1),
         updatedAt: new Date(year, month - 1, 15),
@@ -74,8 +79,13 @@ export class MockDataGenerator {
   // Generate sample expense lines for a report
   static generateExpenseLines(reportId: string): ExpenseLine[] {
     const lines: ExpenseLine[] = [];
-    const report = this.generateExpenseReports().find(r => r.id === reportId);
-    if (!report) return [];
+    
+    // Extract year and month from reportId (format: report_2024_12)
+    const parts = reportId.split('_');
+    if (parts.length !== 3) return [];
+    
+    const year = parseInt(parts[1]);
+    const month = parseInt(parts[2]);
 
     // Generate 8-15 expense lines per report
     const numLines = Math.floor(Math.random() * 8) + 8;
@@ -83,7 +93,7 @@ export class MockDataGenerator {
     for (let i = 0; i < numLines; i++) {
       const type = this.expenseTypes[Math.floor(Math.random() * this.expenseTypes.length)];
       const day = Math.floor(Math.random() * 28) + 1;
-      const date = new Date(report.year, report.month - 1, day);
+      const date = new Date(year, month - 1, day);
 
       let description = "";
       let amount = 0;
@@ -145,7 +155,7 @@ export class MockDataGenerator {
         id: `line_${reportId}_${i + 1}`,
         reportId: reportId,
         date: date,
-        type: type,
+        type: type as any,
         description: description,
         amount: amount,
         currency: "EUR",

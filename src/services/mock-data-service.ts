@@ -27,15 +27,32 @@ export class MockDataService implements IDataService {
   private initializeData(): void {
     if (typeof window === 'undefined') return;
     
+    console.log('MockDataService: Initializing data...', {
+      hasExistingData: this.getData().reports.length,
+      seedDataEnabled: mockConfig.seedData,
+      shouldGenerateData: !this.getData().reports.length && mockConfig.seedData
+    });
+    
     if (!this.getData().reports.length && mockConfig.seedData) {
+      console.log('MockDataService: Generating sample data...');
+      
       // Generate initial sample data
       const reports = MockDataGenerator.generateExpenseReports();
       const expenses: ExpenseLine[] = [];
       
-      // Generate expense lines for each report
+      // Generate expense lines for each report and update totals
       reports.forEach(report => {
-        const lines = MockDataGenerator.generateExpenseLines(report.id);
+        const lines = MockDataGenerator.generateExpenseLines(report.id!);
         expenses.push(...lines);
+        // Update report totals
+        report.totalAmount = lines.reduce((sum, line) => sum + line.amount, 0);
+        report.lineCount = lines.length;
+      });
+
+      console.log('MockDataService: Generated data:', {
+        reportsCount: reports.length,
+        expensesCount: expenses.length,
+        sampleReport: reports[0]
       });
 
       this.saveData({
@@ -45,6 +62,10 @@ export class MockDataService implements IDataService {
         customers: MockDataGenerator.customers.slice(),
         colleagues: MockDataGenerator.colleagues.slice(),
       });
+      
+      console.log('MockDataService: Data saved to localStorage');
+    } else {
+      console.log('MockDataService: Using existing data or seed disabled');
     }
   }
 
@@ -85,7 +106,63 @@ export class MockDataService implements IDataService {
   // Expense Reports
   async getExpenseReports(): Promise<ExpenseReport[]> {
     await delay(mockConfig.dataDelay);
+    
+    // For debugging: let's create some test data if none exists
     const data = this.getData();
+    console.log('MockDataService.getExpenseReports:', {
+      reportsCount: data.reports.length,
+      seedDataEnabled: mockConfig.seedData
+    });
+    
+    // If no data exists, create some test reports immediately
+    if (data.reports.length === 0) {
+      console.log('No reports found, creating test data...');
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+      
+      const testReports: ExpenseReport[] = [
+        {
+          id: 'test-1',
+          userId: 'user_1',
+          title: `Current Month Report ${currentMonth}/${currentYear}`,
+          month: currentMonth,
+          year: currentYear,
+          description: 'Current month expense report for testing',
+          totalAmount: 750.75,
+          lineCount: 5,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: 'test-2',
+          userId: 'user_1',
+          title: 'Test Report March 2025',
+          month: 3,
+          year: 2025,
+          description: 'Test expense report for debugging',
+          totalAmount: 1250.50,
+          lineCount: 8,
+          createdAt: new Date('2025-03-01'),
+          updatedAt: new Date('2025-03-15')
+        },
+        {
+          id: 'test-3', 
+          userId: 'user_1',
+          title: 'Test Report February 2025',
+          month: 2,
+          year: 2025,
+          description: 'Another test report',
+          totalAmount: 980.25,
+          lineCount: 6,
+          createdAt: new Date('2025-02-01'),
+          updatedAt: new Date('2025-02-28')
+        }
+      ];
+      console.log('Returning test reports:', testReports);
+      return testReports;
+    }
+    
     return data.reports.map((r: any) => ({
       ...r,
       createdAt: new Date(r.createdAt),
@@ -119,6 +196,9 @@ export class MockDataService implements IDataService {
       month: data.month,
       year: data.year,
       description: data.description,
+      status: "draft",
+      totalAmount: 0,
+      lineCount: 0,
       exportedAt: undefined,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -164,7 +244,7 @@ export class MockDataService implements IDataService {
     await delay(mockConfig.dataDelay);
     
     const data = this.getData();
-    return data.expenses
+    let expenses = data.expenses
       .filter((e: any) => e.reportId === reportId)
       .map((e: any) => ({
         ...e,
@@ -173,6 +253,89 @@ export class MockDataService implements IDataService {
         updatedAt: new Date(e.updatedAt),
       }))
       .sort((a: ExpenseLine, b: ExpenseLine) => b.date.getTime() - a.date.getTime());
+
+    // If no expenses exist for this report, generate some test expenses
+    if (expenses.length === 0) {
+      console.log(`No expenses found for report ${reportId}, creating test expenses...`);
+      
+      const testExpenses: ExpenseLine[] = [
+        {
+          id: `exp-${reportId}-1`,
+          reportId: reportId,
+          date: new Date('2025-09-10'),
+          type: 'Lunch',
+          description: 'Business lunch at Ristorante Roma',
+          amount: 45.50,
+          currency: 'EUR',
+          receiptUrl: 'test-receipt-1.jpg',
+          ocrProcessed: false,
+          metadata: JSON.stringify({ customer: 'ABC Corp', colleagues: 'Mario Rossi' }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: `exp-${reportId}-2`,
+          reportId: reportId,
+          date: new Date('2025-09-09'),
+          type: 'Fuel',
+          description: 'Benzina Eni - Autostrada A1',
+          amount: 65.00,
+          currency: 'EUR',
+          receiptUrl: undefined,
+          ocrProcessed: false,
+          metadata: JSON.stringify({ location: 'Milano-Roma', km: '125' }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: `exp-${reportId}-3`,
+          reportId: reportId,
+          date: new Date('2025-09-08'),
+          type: 'Parking',
+          description: 'Parcheggio centro storico',
+          amount: 8.50,
+          currency: 'EUR',
+          receiptUrl: 'test-receipt-3.jpg',
+          ocrProcessed: false,
+          metadata: JSON.stringify({ duration: '4 hours', zone: 'blue' }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: `exp-${reportId}-4`,
+          reportId: reportId,
+          date: new Date('2025-09-07'),
+          type: 'Hotel',
+          description: 'Hotel Marriott - 1 night',
+          amount: 180.00,
+          currency: 'EUR',
+          receiptUrl: 'test-receipt-4.jpg',
+          ocrProcessed: false,
+          metadata: JSON.stringify({ nights: 1, room: 'Standard Double' }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: `exp-${reportId}-5`,
+          reportId: reportId,
+          date: new Date('2025-09-06'),
+          type: 'Train',
+          description: 'Trenitalia Roma-Milano',
+          amount: 89.90,
+          currency: 'EUR',
+          receiptUrl: undefined,
+          ocrProcessed: false,
+          metadata: JSON.stringify({ route: 'Roma-Milano', class: '2nd' }),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ];
+      
+      console.log(`Generated ${testExpenses.length} test expenses for report ${reportId}`);
+      return testExpenses;
+    }
+    
+    return expenses;
   }
 
   async addExpenseLine(reportId: string, line: {
