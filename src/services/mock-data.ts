@@ -159,10 +159,10 @@ export class MockDataGenerator {
         description: description,
         amount: amount,
         currency: "EUR",
-        receiptUrl: Math.random() > 0.3 ? `blob:mock-receipt-${generateId()}` : undefined,
+        receiptId: Math.random() > 0.3 ? `blob:mock-receipt-${generateId()}` : undefined,
         ocrProcessed: Math.random() > 0.6,
         ocrData: undefined,
-        metadata: metadata || undefined,
+        metadata: metadata,
         createdAt: date,
         updatedAt: date,
       });

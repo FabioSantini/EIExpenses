@@ -25,12 +25,23 @@ export default function ExpenseReportDetailPage() {
   const router = useRouter();
   const reportId = params.id as string;
   
-  const { expenses, summary, isLoading, error } = useExpenseLines(reportId);
+  const { expenses, summary, isLoading, error, deleteExpense } = useExpenseLines(reportId);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (window.confirm("Are you sure you want to delete this expense? This action cannot be undone.")) {
+      try {
+        await deleteExpense(expenseId);
+      } catch (error) {
+        console.error("Failed to delete expense:", error);
+        // The error will be handled by the hook and displayed via toast
+      }
+    }
+  };
 
   if (!mounted) {
     return (
@@ -72,28 +83,71 @@ export default function ExpenseReportDetailPage() {
     }
   };
 
+  // Helper function to format metadata in a user-friendly way
+  const formatMetadata = (metadata: any) => {
+    if (!metadata) return null;
+
+    // Handle typed metadata format
+    if (typeof metadata === 'object' && metadata.type && metadata.data) {
+      return Object.entries(metadata.data).map(([key, value]) => (
+        <span key={key} className="inline-block mr-3 mb-1">
+          <span className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1').toLowerCase()}:</span> {String(value)}
+        </span>
+      ));
+    }
+
+    // Handle legacy string format or other objects
+    if (typeof metadata === 'string') {
+      try {
+        const parsed = JSON.parse(metadata);
+        return Object.entries(parsed).map(([key, value]) => (
+          <span key={key} className="inline-block mr-3 mb-1">
+            <span className="font-medium capitalize">{key}:</span> {String(value)}
+          </span>
+        ));
+      } catch {
+        return metadata;
+      }
+    }
+
+    // Handle direct object format
+    if (typeof metadata === 'object') {
+      return Object.entries(metadata).map(([key, value]) => (
+        <span key={key} className="inline-block mr-3 mb-1">
+          <span className="font-medium capitalize">{key}:</span> {String(value)}
+        </span>
+      ));
+    }
+
+    return String(metadata);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button 
-                variant="outline" 
-                size="sm"
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+              <Button
+                variant="outline"
+                size="default"
                 onClick={() => router.push('/')}
+                className="self-start sm:self-auto"
               >
                 <ArrowLeftIcon className="w-4 h-4 mr-2" />
                 Back to Dashboard
               </Button>
               <div>
-                <h1 className="text-3xl font-bold text-slate-900">Expense Report Details</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Expense Report Details</h1>
                 <p className="text-slate-600 mt-1">Manage individual expense items</p>
               </div>
             </div>
-            <Button className="bg-primary hover:bg-primary/90">
-              <PlusIcon className="w-4 h-4 mr-2" />
+            <Button
+              className="bg-primary hover:bg-primary/90 w-full sm:w-auto h-12 sm:h-10"
+              onClick={() => router.push(`/reports/${reportId}/expenses/new`)}
+            >
+              <PlusIcon className="w-5 h-5 mr-2" />
               Add Expense
             </Button>
           </div>
@@ -108,7 +162,7 @@ export default function ExpenseReportDetailPage() {
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-slate-600">
@@ -176,14 +230,17 @@ export default function ExpenseReportDetailPage() {
 
         {/* Expense Lines */}
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
             <h2 className="text-xl font-semibold text-slate-900">Expense Items</h2>
-            <div className="flex space-x-2">
-              <Button variant="outline" size="sm">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+              <Button variant="outline" className="w-full sm:w-auto h-12 sm:h-9">
                 Export Excel
               </Button>
-              <Button size="sm">
-                <PlusIcon className="w-4 h-4 mr-2" />
+              <Button
+                className="w-full sm:w-auto h-12 sm:h-9"
+                onClick={() => router.push(`/reports/${reportId}/expenses/new`)}
+              >
+                <PlusIcon className="w-5 h-5 mr-2" />
                 Add Expense
               </Button>
             </div>
@@ -213,15 +270,15 @@ export default function ExpenseReportDetailPage() {
                 const typeInfo = getExpenseTypeIcon(expense.type);
                 return (
                   <Card key={expense.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className={`w-12 h-12 ${typeInfo.bg} rounded-lg flex items-center justify-center`}>
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                        <div className="flex items-center space-x-3 sm:space-x-4 flex-1">
+                          <div className={`w-10 h-10 sm:w-12 sm:h-12 ${typeInfo.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
                             <span className={typeInfo.color}>{typeInfo.icon}</span>
                           </div>
-                          <div>
-                            <h3 className="font-medium text-slate-900">{expense.description}</h3>
-                            <div className="flex items-center space-x-4 text-sm text-slate-500 mt-1">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-slate-900 truncate">{expense.description}</h3>
+                            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500 mt-1">
                               <div className="flex items-center space-x-1">
                                 <CalendarIcon className="w-4 h-4" />
                                 <span>{expense.date.toLocaleDateString('it-IT')}</span>
@@ -229,7 +286,7 @@ export default function ExpenseReportDetailPage() {
                               <span className="px-2 py-1 bg-slate-100 rounded text-xs font-medium">
                                 {expense.type}
                               </span>
-                              {expense.receiptUrl && (
+                              {expense.receiptId && (
                                 <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
                                   Has Receipt
                                 </span>
@@ -237,20 +294,32 @@ export default function ExpenseReportDetailPage() {
                             </div>
                           </div>
                         </div>
-                        
-                        <div className="flex items-center space-x-4">
-                          <div className="text-right">
+
+                        <div className="flex items-center justify-between sm:justify-end sm:space-x-4">
+                          <div className="text-left sm:text-right">
                             <p className="text-lg font-bold text-slate-900">
                               €{expense.amount.toFixed(2)}
                             </p>
                             <p className="text-sm text-slate-500">{expense.currency}</p>
                           </div>
                           <div className="flex space-x-2">
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-10 w-10 sm:h-9 sm:w-auto sm:px-3"
+                              onClick={() => router.push(`/reports/${reportId}/expenses/${expense.id}/edit`)}
+                            >
                               <EditIcon className="w-4 h-4" />
+                              <span className="sr-only sm:not-sr-only sm:ml-2">Edit</span>
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-10 w-10 sm:h-9 sm:w-auto sm:px-3"
+                              onClick={() => handleDeleteExpense(expense.id)}
+                            >
                               <TrashIcon className="w-4 h-4" />
+                              <span className="sr-only sm:not-sr-only sm:ml-2">Delete</span>
                             </Button>
                           </div>
                         </div>
@@ -258,7 +327,10 @@ export default function ExpenseReportDetailPage() {
 
                       {expense.metadata && (
                         <div className="mt-4 pt-4 border-t text-sm text-slate-600">
-                          <strong>Additional Info:</strong> {expense.metadata}
+                          <div className="font-medium mb-2">Additional Info:</div>
+                          <div className="flex flex-wrap">
+                            {formatMetadata(expense.metadata)}
+                          </div>
                         </div>
                       )}
                     </CardContent>

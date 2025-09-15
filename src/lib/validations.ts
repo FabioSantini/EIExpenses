@@ -34,7 +34,60 @@ export const ExpenseReportSchema = z.object({
 
 export type ExpenseReport = z.infer<typeof ExpenseReportSchema>;
 
-// Expense Line schema
+// Enhanced Metadata Schemas for each expense type
+export const FuelExpenseMetadataSchema = z.object({
+  startLocation: z.string().min(1, "Start location is required"),
+  endLocation: z.string().min(1, "End location is required"),
+  distance: z.number().positive().optional(),
+  roundtrip: z.boolean().optional(),
+  route: z.string().optional(),
+  vehicleType: z.enum(["car", "truck", "motorcycle"]).optional(),
+  liters: z.number().positive().optional(),
+});
+
+export const MealExpenseMetadataSchema = z.object({
+  customer: z.string().optional(),
+  colleagues: z.array(z.string()).optional(),
+  attendees: z.number().int().positive().optional(),
+  businessPurpose: z.string().optional(),
+  location: z.string().optional(),
+});
+
+export const HotelExpenseMetadataSchema = z.object({
+  location: z.string().min(1, "Hotel location is required"),
+  nights: z.number().int().positive("Number of nights must be positive"),
+  room: z.string().optional(),
+  bookingRef: z.string().optional(),
+  checkIn: z.string().optional(),
+  checkOut: z.string().optional(),
+});
+
+export const ParkingExpenseMetadataSchema = z.object({
+  location: z.string().optional(),
+  duration: z.string().optional(),
+  zone: z.string().optional(),
+  hourlyRate: z.number().positive().optional(),
+});
+
+export const TransportExpenseMetadataSchema = z.object({
+  route: z.string().optional(),
+  class: z.enum(["1st", "2nd", "business", "economy"]).optional(),
+  departure: z.string().optional(),
+  arrival: z.string().optional(),
+  ticketRef: z.string().optional(),
+});
+
+// Simplified metadata schema for now - using flexible record type
+export const ExpenseMetadataSchema = z.record(z.any());
+
+export type FuelExpenseMetadata = z.infer<typeof FuelExpenseMetadataSchema>;
+export type MealExpenseMetadata = z.infer<typeof MealExpenseMetadataSchema>;
+export type HotelExpenseMetadata = z.infer<typeof HotelExpenseMetadataSchema>;
+export type ParkingExpenseMetadata = z.infer<typeof ParkingExpenseMetadataSchema>;
+export type TransportExpenseMetadata = z.infer<typeof TransportExpenseMetadataSchema>;
+export type ExpenseMetadata = z.infer<typeof ExpenseMetadataSchema>;
+
+// Enhanced Expense Line schema with typed metadata
 export const ExpenseLineSchema = z.object({
   id: z.string().cuid().optional(),
   reportId: z.string().cuid(),
@@ -43,15 +96,33 @@ export const ExpenseLineSchema = z.object({
   description: z.string().min(1, "Description is required").max(200),
   amount: z.number().positive("Amount must be positive"),
   currency: z.string().length(3).default("EUR"),
-  receiptUrl: z.string().url().optional(),
+  receiptId: z.string().optional(), // Changed from receiptUrl to receiptId
   ocrProcessed: z.boolean().default(false),
   ocrData: z.string().optional(),
-  metadata: z.string().optional(),
+  metadata: z.record(z.any()).optional(),
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
 });
 
+// For storage compatibility - dates as ISO strings
+export const ExpenseLineStorageSchema = z.object({
+  id: z.string().cuid(),
+  reportId: z.string().cuid(),
+  date: z.string(), // ISO string for localStorage compatibility
+  type: ExpenseType,
+  description: z.string().min(1).max(200),
+  amount: z.number().positive(),
+  currency: z.string().length(3),
+  receiptId: z.string().optional(),
+  ocrProcessed: z.boolean(),
+  ocrData: z.string().optional(),
+  metadata: z.record(z.any()).optional(),
+  createdAt: z.string(), // ISO string
+  updatedAt: z.string(), // ISO string
+});
+
 export type ExpenseLine = z.infer<typeof ExpenseLineSchema>;
+export type ExpenseLineStorage = z.infer<typeof ExpenseLineStorageSchema>;
 
 // Form schemas for different expense types
 export const BaseExpenseFormSchema = z.object({

@@ -1,11 +1,15 @@
-import type { 
-  ExpenseReport, 
-  ExpenseLine, 
-  User, 
+import type {
+  ExpenseReport,
+  ExpenseLine,
+  User,
   OCRResult,
-  ExportSettings 
+  ExportSettings
 } from "@/types";
-import { IDataService } from "./data-service";
+import {
+  IDataService,
+  CreateExpenseLineInput,
+  CreateExpenseReportInput
+} from "./data-service";
 import { MockDataGenerator } from "./mock-data";
 import { generateId, delay, formatCurrency } from "@/lib/utils";
 import { mockConfig } from "@/lib/env";
@@ -129,6 +133,7 @@ export class MockDataService implements IDataService {
           month: currentMonth,
           year: currentYear,
           description: 'Current month expense report for testing',
+          status: 'draft',
           totalAmount: 750.75,
           lineCount: 5,
           createdAt: new Date(),
@@ -141,18 +146,20 @@ export class MockDataService implements IDataService {
           month: 3,
           year: 2025,
           description: 'Test expense report for debugging',
+          status: 'submitted',
           totalAmount: 1250.50,
           lineCount: 8,
           createdAt: new Date('2025-03-01'),
           updatedAt: new Date('2025-03-15')
         },
         {
-          id: 'test-3', 
+          id: 'test-3',
           userId: 'user_1',
           title: 'Test Report February 2025',
           month: 2,
           year: 2025,
           description: 'Another test report',
+          status: 'approved',
           totalAmount: 980.25,
           lineCount: 6,
           createdAt: new Date('2025-02-01'),
@@ -181,12 +188,7 @@ export class MockDataService implements IDataService {
     return report;
   }
 
-  async createExpenseReport(data: {
-    title: string;
-    month: number;
-    year: number;
-    description?: string;
-  }): Promise<ExpenseReport> {
+  async createExpenseReport(data: CreateExpenseReportInput): Promise<ExpenseReport> {
     await delay(mockConfig.dataDelay);
     
     const newReport: ExpenseReport = {
@@ -257,19 +259,19 @@ export class MockDataService implements IDataService {
     // If no expenses exist for this report, generate some test expenses
     if (expenses.length === 0) {
       console.log(`No expenses found for report ${reportId}, creating test expenses...`);
-      
+
       const testExpenses: ExpenseLine[] = [
         {
           id: `exp-${reportId}-1`,
           reportId: reportId,
           date: new Date('2025-09-10'),
-          type: 'Lunch',
+          type: 'LUNCH',
           description: 'Business lunch at Ristorante Roma',
           amount: 45.50,
           currency: 'EUR',
-          receiptUrl: 'test-receipt-1.jpg',
+          receiptId: 'test-receipt-1.jpg',
           ocrProcessed: false,
-          metadata: JSON.stringify({ customer: 'ABC Corp', colleagues: 'Mario Rossi' }),
+          metadata: { type: 'LUNCH', data: { customer: 'ABC Corp', colleagues: ['Mario Rossi'] } },
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -277,13 +279,13 @@ export class MockDataService implements IDataService {
           id: `exp-${reportId}-2`,
           reportId: reportId,
           date: new Date('2025-09-09'),
-          type: 'Fuel',
+          type: 'FUEL',
           description: 'Benzina Eni - Autostrada A1',
           amount: 65.00,
           currency: 'EUR',
-          receiptUrl: undefined,
+          receiptId: undefined,
           ocrProcessed: false,
-          metadata: JSON.stringify({ location: 'Milano-Roma', km: '125' }),
+          metadata: { type: 'FUEL', data: { startLocation: 'Milano', endLocation: 'Roma', distance: 125 } },
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -291,13 +293,13 @@ export class MockDataService implements IDataService {
           id: `exp-${reportId}-3`,
           reportId: reportId,
           date: new Date('2025-09-08'),
-          type: 'Parking',
+          type: 'PARKING',
           description: 'Parcheggio centro storico',
           amount: 8.50,
           currency: 'EUR',
-          receiptUrl: 'test-receipt-3.jpg',
+          receiptId: 'test-receipt-3.jpg',
           ocrProcessed: false,
-          metadata: JSON.stringify({ duration: '4 hours', zone: 'blue' }),
+          metadata: { type: 'PARKING', data: { duration: '4 hours', zone: 'blue' } },
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -305,13 +307,13 @@ export class MockDataService implements IDataService {
           id: `exp-${reportId}-4`,
           reportId: reportId,
           date: new Date('2025-09-07'),
-          type: 'Hotel',
+          type: 'HOTEL',
           description: 'Hotel Marriott - 1 night',
           amount: 180.00,
           currency: 'EUR',
-          receiptUrl: 'test-receipt-4.jpg',
+          receiptId: 'test-receipt-4.jpg',
           ocrProcessed: false,
-          metadata: JSON.stringify({ nights: 1, room: 'Standard Double' }),
+          metadata: { type: 'HOTEL', data: { location: 'Milano', nights: 1, room: 'Standard Double' } },
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -319,36 +321,33 @@ export class MockDataService implements IDataService {
           id: `exp-${reportId}-5`,
           reportId: reportId,
           date: new Date('2025-09-06'),
-          type: 'Train',
+          type: 'TRAIN',
           description: 'Trenitalia Roma-Milano',
           amount: 89.90,
           currency: 'EUR',
-          receiptUrl: undefined,
+          receiptId: undefined,
           ocrProcessed: false,
-          metadata: JSON.stringify({ route: 'Roma-Milano', class: '2nd' }),
+          metadata: { type: 'TRAIN', data: { route: 'Roma-Milano', class: '2nd' } },
           createdAt: new Date(),
           updatedAt: new Date()
         }
       ];
-      
-      console.log(`Generated ${testExpenses.length} test expenses for report ${reportId}`);
+
+      // Save the generated test expenses to localStorage so they can be updated later
+      const stored = this.getData();
+      stored.expenses.push(...testExpenses);
+      this.saveData(stored);
+
+      console.log(`Generated and saved ${testExpenses.length} test expenses for report ${reportId}`);
       return testExpenses;
     }
     
     return expenses;
   }
 
-  async addExpenseLine(reportId: string, line: {
-    date: Date;
-    type: string;
-    description: string;
-    amount: number;
-    currency?: string;
-    receiptUrl?: string;
-    metadata?: string;
-  }): Promise<ExpenseLine> {
+  async addExpenseLine(reportId: string, line: CreateExpenseLineInput): Promise<ExpenseLine> {
     await delay(mockConfig.dataDelay);
-    
+
     // Verify report exists
     await this.getExpenseReport(reportId);
 
@@ -360,7 +359,7 @@ export class MockDataService implements IDataService {
       description: line.description,
       amount: line.amount,
       currency: line.currency || "EUR",
-      receiptUrl: line.receiptUrl,
+      receiptId: line.receiptId,
       ocrProcessed: false,
       ocrData: undefined,
       metadata: line.metadata,
@@ -528,11 +527,29 @@ export class MockDataService implements IDataService {
     let csvContent = "Date,Type,Description,Amount,Currency,Customer,Colleagues,Receipt\n";
     
     expenses.forEach(expense => {
-      const metadata = expense.metadata ? JSON.parse(expense.metadata) : {};
-      const customer = metadata.customer || "";
-      const colleagues = metadata.colleagues || "";
-      const hasReceipt = expense.receiptUrl ? "Yes" : "No";
-      
+      let customer = "";
+      let colleagues = "";
+
+      // Handle new typed metadata format
+      if (expense.metadata) {
+        if (typeof expense.metadata === 'object' && expense.metadata.data) {
+          customer = expense.metadata.data.customer || "";
+          colleagues = Array.isArray(expense.metadata.data.colleagues)
+            ? expense.metadata.data.colleagues.join(", ")
+            : expense.metadata.data.colleagues || "";
+        } else if (typeof expense.metadata === 'string') {
+          try {
+            const parsed = JSON.parse(expense.metadata);
+            customer = parsed.customer || "";
+            colleagues = parsed.colleagues || "";
+          } catch {
+            // Ignore parsing errors
+          }
+        }
+      }
+
+      const hasReceipt = expense.receiptId ? "Yes" : "No";
+
       csvContent += `${expense.date.toLocaleDateString()},${expense.type},${expense.description},${expense.amount},${expense.currency},${customer},${colleagues},${hasReceipt}\n`;
     });
 
@@ -552,5 +569,34 @@ export class MockDataService implements IDataService {
     const updatedText = text + "\n\nNote: Receipt files would be included in production version";
     
     return new Blob([updatedText], { type: 'text/csv' });
+  }
+
+  async removeReceipt(receiptId: string): Promise<void> {
+    await delay(mockConfig.dataDelay);
+    // In mock service, receipts are just URLs so we simulate removal
+    console.log(`Mock: Removing receipt ${receiptId}`);
+  }
+
+  async clearAllData(): Promise<void> {
+    await delay(mockConfig.dataDelay);
+    const stored = localStorage.getItem(this.storageKey);
+    if (stored) {
+      const data = JSON.parse(stored);
+      data.reports = [];
+      data.expenses = [];
+      data.customers = [];
+      data.colleagues = [];
+      localStorage.setItem(this.storageKey, JSON.stringify(data));
+    }
+  }
+
+  async getStorageInfo(): Promise<{ used: number; available: number }> {
+    await delay(mockConfig.dataDelay);
+    // Simulate storage info
+    const storageUsed = localStorage.getItem(this.storageKey)?.length || 0;
+    return {
+      used: storageUsed,
+      available: 5 * 1024 * 1024 - storageUsed // 5MB limit for localStorage
+    };
   }
 }

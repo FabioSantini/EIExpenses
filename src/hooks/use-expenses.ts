@@ -114,7 +114,7 @@ export function useExpenseLines(reportId: string) {
     description: string;
     amount: number;
     currency?: string;
-    receiptUrl?: string;
+    receiptId?: string;
     metadata?: string;
   }) => {
     try {
@@ -152,7 +152,7 @@ export function useExpenseLines(reportId: string) {
   const summary = {
     totalAmount: expenses.reduce((sum, expense) => sum + expense.amount, 0),
     count: expenses.length,
-    withReceipts: expenses.filter(e => e.receiptUrl).length,
+    withReceipts: expenses.filter(e => e.receiptId).length,
     byType: expenses.reduce((acc, expense) => {
       acc[expense.type] = (acc[expense.type] || 0) + expense.amount;
       return acc;
@@ -193,10 +193,10 @@ export function useFileUpload() {
     }
   };
 
-  const processWithOCR = async (receiptUrl: string) => {
+  const processWithOCR = async (receiptId: string) => {
     try {
       setError(null);
-      const ocrResult = await dataService.processReceiptOCR(receiptUrl);
+      const ocrResult = await dataService.processReceiptOCR(receiptId);
       return ocrResult;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to process receipt with OCR");
