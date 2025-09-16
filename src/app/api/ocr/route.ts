@@ -114,7 +114,7 @@ EXPENSE TYPE RULES:
 - FUEL: if contains "carburante", "benzina", "gasolio", "fuel", "esso", "eni", "agip"
 - PARKING: if contains "parcheggio", "sosta", "parking"
 - TRAIN: if contains "trenitalia", "italo", "biglietto", "treno"
-- TAXI: if contains "taxi", "uber", "ncc", "radio taxi", "servizio taxi"
+- TAXI: if contains "taxi", "uber", "ncc", "radio taxi", "servizio taxi", "servei taxi", "licencia", "matricula", "recorregut"
 - OTHER: if none of the above apply
 
 EXTRACTION RULES:

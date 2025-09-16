@@ -110,18 +110,13 @@ Grazie per la sua visita!`
     console.log("🔍 processReceiptWithFallback called");
     console.log("🎭 Mock mode:", env.NEXT_PUBLIC_USE_MOCK);
 
-    // In mock mode, always use mock data
-    if (env.NEXT_PUBLIC_USE_MOCK) {
-      console.log("🧪 Using mock OCR processing (MOCK MODE ENABLED)");
-      return this.processReceiptMock(imageFile);
-    }
-
-    // Try real API via server endpoint
+    // Always try real API if we have the endpoint (server checks for API key)
     try {
-      console.log("📡 Using real OpenAI GPT-4 Vision API via server");
+      console.log("📡 Trying real OpenAI GPT-4 Vision API via server");
       const result = await this.processReceipt(imageFile);
 
       if (result.success) {
+        console.log("✅ Real OCR successful");
         return result;
       } else {
         console.log("🔄 Real API failed, falling back to mock");
