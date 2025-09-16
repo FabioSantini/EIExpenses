@@ -3,12 +3,13 @@ import { z } from "zod";
 // Expense types enum
 export const ExpenseType = z.enum([
   "PARKING",
-  "FUEL", 
+  "FUEL",
   "TELEPASS",
   "LUNCH",
   "DINNER",
   "HOTEL",
   "TRAIN",
+  "TAXI",
   "BREAKFAST",
   "TOURIST_TAX",
   "OTHER",

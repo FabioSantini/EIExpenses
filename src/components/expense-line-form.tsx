@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { GooglePlacesAutocomplete } from "@/components/google-places-autocomplete";
+import { ReceiptUpload, type ExtractedReceiptData } from "@/components/receipt-upload";
 import { googleMapsService, GoogleMapsService } from "@/services/google-maps-service";
 import { settingsService } from "@/services/settings-service";
 import {
@@ -50,6 +51,7 @@ const expenseTypes: ExpenseType[] = [
   "DINNER",
   "HOTEL",
   "TRAIN",
+  "TAXI",
   "BREAKFAST",
   "TOURIST_TAX",
   "OTHER",
@@ -112,6 +114,7 @@ export function ExpenseLineForm({
   const [colleagueSuggestions, setColleagueSuggestions] = useState<string[]>([]);
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
   const [distanceError, setDistanceError] = useState<string | null>(null);
+  const [showReceiptUpload, setShowReceiptUpload] = useState(false);
   // Initialize costPerKm from settings
   const [costPerKm, setCostPerKm] = useState(() => {
     const settings = settingsService.getSettings();
@@ -348,6 +351,59 @@ export function ExpenseLineForm({
     }
   };
 
+  // Handle receipt data extraction
+  const handleReceiptDataExtracted = (data: ExtractedReceiptData) => {
+    console.log("📄 Receipt data extracted:", data);
+
+    // Auto-fill form fields with extracted data
+    if (data.type) {
+      setValue("type", data.type as any);
+    }
+
+    if (data.amount) {
+      setValue("amount", data.amount);
+      setLocalAmount(data.amount);
+    }
+
+    if (data.date) {
+      setValue("date", data.date);
+    }
+
+    if (data.description) {
+      setValue("description", data.description);
+    }
+
+    // For specific expense types, fill metadata fields
+    if (data.type === "LUNCH" || data.type === "DINNER" || data.type === "BREAKFAST") {
+      if (data.vendor) {
+        setValue("customer", data.vendor);
+      }
+      if (data.location) {
+        // Try to extract location as customer info
+        setValue("customer", data.location);
+      }
+    }
+
+    if (data.type === "HOTEL" && data.location) {
+      setValue("location", data.location);
+    }
+
+    if (data.type === "FUEL") {
+      if (data.location) {
+        setValue("startLocation", data.location);
+      }
+    }
+
+    // Close the receipt upload modal
+    setShowReceiptUpload(false);
+
+    // Show a toast notification
+    toast({
+      title: "Receipt Processed",
+      description: `Extracted ${Object.keys(data).filter(key => data[key as keyof ExtractedReceiptData]).length} fields from receipt`,
+    });
+  };
+
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
     try {
@@ -504,6 +560,8 @@ export function ExpenseLineForm({
       case "TRAIN":
       case "TELEPASS":
         return <TrainIcon className="w-5 h-5" />;
+      case "TAXI":
+        return <CarIcon className="w-5 h-5" />;
       default:
         return <ReceiptIcon className="w-5 h-5" />;
     }
@@ -877,20 +935,37 @@ export function ExpenseLineForm({
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={handleCancel}
-            className="mb-4"
-            disabled={isSubmitting}
-          >
-            <ArrowLeftIcon className="w-4 h-4 mr-2" />
-            Back to Report
-          </Button>
+          <div className="flex justify-between items-start mb-4">
+            <Button
+              variant="ghost"
+              onClick={handleCancel}
+              disabled={isSubmitting}
+            >
+              <ArrowLeftIcon className="w-4 h-4 mr-2" />
+              Back to Report
+            </Button>
+
+            {/* Receipt scan button - only show for new expenses */}
+            {!isEditing && (
+              <Button
+                onClick={() => setShowReceiptUpload(true)}
+                disabled={isSubmitting}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <ReceiptIcon className="w-4 h-4 mr-2" />
+                Scan Receipt
+              </Button>
+            )}
+          </div>
+
           <h1 className="text-2xl font-bold text-slate-900">
             {isEditing ? "Edit Expense" : "Add New Expense"}
           </h1>
           <p className="text-slate-600 mt-1">
-            {isEditing ? "Update the expense details" : "Add a new expense to your report"}
+            {isEditing
+              ? "Update the expense details"
+              : "Add a new expense to your report or scan a receipt to auto-fill the details"
+            }
           </p>
         </div>
 
@@ -1074,6 +1149,19 @@ export function ExpenseLineForm({
             )}
           </div>
         </div>
+
+        {/* Receipt Upload Modal */}
+        {showReceiptUpload && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <ReceiptUpload
+                onDataExtracted={handleReceiptDataExtracted}
+                onCancel={() => setShowReceiptUpload(false)}
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

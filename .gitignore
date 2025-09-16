@@ -186,3 +186,5 @@ docker-compose.override.yml
 #    - IDE settings
 #    - OS-specific files
 # ============================================*.tsbuildinfo
+.env.local
+.env.local
