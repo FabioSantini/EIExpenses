@@ -187,7 +187,14 @@ docker-compose.override.yml
 #    - Database connections
 #    - IDE settings
 #    - OS-specific files
-# ============================================*.tsbuildinfo
+
+
+
+# Env
+.env
+.env.*
+!.env.example
 .env.local
-.env.local
-.env.local
+
+# TypeScript build cache
+*.tsbuildinfo
