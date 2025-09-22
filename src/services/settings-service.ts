@@ -15,6 +15,10 @@ const AppSettingsSchema = z.object({
     theme: z.enum(["light", "dark", "system"]).default("light"),
     dateFormat: z.enum(["dd/mm/yyyy", "mm/dd/yyyy", "yyyy-mm-dd"]).default("dd/mm/yyyy"),
   }),
+  authentication: z.object({
+    automaticLogin: z.boolean().default(true),
+    prompt: z.enum(["none", "login", "select_account"]).default("none"),
+  }),
 });
 
 export type AppSettings = z.infer<typeof AppSettingsSchema>;
@@ -33,6 +37,10 @@ const defaultSettings: AppSettings = {
   ui: {
     theme: "light",
     dateFormat: "dd/mm/yyyy",
+  },
+  authentication: {
+    automaticLogin: true,
+    prompt: "none",
   },
 };
 
@@ -54,7 +62,16 @@ class SettingsService {
       }
 
       const parsed = JSON.parse(stored);
-      return AppSettingsSchema.parse(parsed);
+      // Ensure authentication property exists with defaults
+      const withDefaults = {
+        ...defaultSettings,
+        ...parsed,
+        authentication: {
+          ...defaultSettings.authentication,
+          ...parsed.authentication,
+        },
+      };
+      return AppSettingsSchema.parse(withDefaults);
     } catch (error) {
       console.error("Failed to load settings:", error);
       return defaultSettings;
@@ -65,22 +82,30 @@ class SettingsService {
    * Update settings
    */
   updateSettings(settings: Partial<AppSettings>): AppSettings {
+    console.log("SettingsService.updateSettings called with:", settings);
     try {
       const current = this.getSettings();
+      console.log("Current settings:", current);
+
       const updated = {
         ...current,
         ...settings,
         fuel: { ...current.fuel, ...settings.fuel },
         currency: { ...current.currency, ...settings.currency },
         ui: { ...current.ui, ...settings.ui },
+        authentication: { ...current.authentication, ...settings.authentication },
       };
 
+      console.log("Updated settings before validation:", updated);
       const validated = AppSettingsSchema.parse(updated);
+      console.log("Settings validated successfully:", validated);
 
       if (typeof window !== "undefined") {
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(validated));
+        console.log("Settings saved to localStorage successfully");
       }
 
+      console.log("Returning validated settings:", validated);
       return validated;
     } catch (error) {
       console.error("Failed to update settings:", error);

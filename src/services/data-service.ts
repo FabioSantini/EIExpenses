@@ -55,6 +55,7 @@ export interface IFileStorage {
 export interface IDataService {
   // User Management
   getCurrentUser(): Promise<User>;
+  setUserContext?(email: string): void;
 
   // Expense Reports
   getExpenseReports(): Promise<ExpenseReport[]>;
@@ -70,7 +71,7 @@ export interface IDataService {
   deleteExpenseLine(id: string): Promise<void>;
 
   // File Operations
-  uploadReceipt(file: File): Promise<string>; // Returns fileId
+  uploadReceipt(file: File, reportId?: string): Promise<string>; // Returns fileId
   getReceiptUrl(receiptId: string): Promise<string>;
   downloadReceipt(receiptId: string): Promise<Blob>;
   removeReceipt(receiptId: string): Promise<void>;

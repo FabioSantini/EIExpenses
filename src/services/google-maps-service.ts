@@ -132,9 +132,6 @@ class GoogleMapsService {
    */
 
   async getDistance(startAddress: string, endAddress: string): Promise<DistanceCalculationResult> {
-    console.log(`🚨 RAW INPUT ADDRESSES:`);
-    console.log(`   Start (raw): "${startAddress}"`);
-    console.log(`   End (raw): "${endAddress}"`);
 
     if (!startAddress.trim() || !endAddress.trim()) {
       throw new Error("Both start and end addresses are required");
@@ -145,28 +142,20 @@ class GoogleMapsService {
       throw new Error("Addresses must be at least 3 characters long");
     }
 
-    console.log(`🗺️ Distance calculation request: "${startAddress}" → "${endAddress}"`);
-    console.log(`🔧 Google Maps enabled: ${features.enableGoogleMaps}`);
 
     try {
       if (features.enableGoogleMaps) {
-        console.log("📡 Attempting real Google Maps Distance Matrix API...");
         const result = await this.calculateDistance(startAddress, endAddress);
-        console.log("✅ Real API result:", result);
         return result;
       } else {
         // Use mock in development when API is not available
-        console.log("🧪 Using mock distance calculation (Google Maps API not available)");
         const result = await this.calculateDistanceMock(startAddress, endAddress);
-        console.log("🎭 Mock API result:", result);
         return result;
       }
     } catch (error) {
       console.error("❌ Distance calculation failed:", error);
       // Fallback to mock if real API fails
-      console.log("🔄 Falling back to mock distance calculation");
       const result = await this.calculateDistanceMock(startAddress, endAddress);
-      console.log("🎭 Fallback mock result:", result);
       return result;
     }
   }

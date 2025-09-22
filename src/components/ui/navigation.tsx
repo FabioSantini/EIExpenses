@@ -3,15 +3,19 @@
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
+import { settingsService } from "@/services/settings-service";
 import { Button } from "./button";
-import { 
-  MenuIcon, 
-  PlusIcon, 
-  FileTextIcon, 
-  ReceiptIcon, 
+import {
+  MenuIcon,
+  PlusIcon,
+  FileTextIcon,
+  ReceiptIcon,
   DownloadIcon,
   HomeIcon,
-  UserIcon
+  UserIcon,
+  SettingsIcon,
+  LogOutIcon
 } from "lucide-react";
 
 interface NavigationProps {
@@ -20,19 +24,14 @@ interface NavigationProps {
 
 export function Navigation({ currentPath }: NavigationProps) {
   const router = useRouter();
+  const { data: session } = useSession();
 
   const navigationItems = [
-    {
-      href: "/",
-      label: "Dashboard",
-      icon: <HomeIcon className="w-5 h-5" />,
-      active: currentPath === "/"
-    },
     {
       href: "/reports",
       label: "Reports",
       icon: <FileTextIcon className="w-5 h-5" />,
-      active: currentPath.startsWith("/reports")
+      active: currentPath === "/reports" || currentPath === "/" || currentPath.startsWith("/reports/")
     },
     {
       href: "/upload",
@@ -45,6 +44,12 @@ export function Navigation({ currentPath }: NavigationProps) {
       label: "Export",
       icon: <DownloadIcon className="w-5 h-5" />,
       active: currentPath === "/export"
+    },
+    {
+      href: "/settings",
+      label: "Settings",
+      icon: <SettingsIcon className="w-5 h-5" />,
+      active: currentPath === "/settings"
     }
   ];
 
@@ -81,10 +86,10 @@ export function Navigation({ currentPath }: NavigationProps) {
             ))}
           </nav>
 
-          {/* Action Buttons */}
+          {/* User Info & Actions */}
           <div className="flex items-center space-x-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               className="hidden sm:flex"
               onClick={() => router.push("/reports/new")}
@@ -92,10 +97,45 @@ export function Navigation({ currentPath }: NavigationProps) {
               <PlusIcon className="w-4 h-4 mr-2" />
               New Report
             </Button>
-            
-            <Button variant="ghost" size="sm" className="md:hidden">
-              <MenuIcon className="w-5 h-5" />
-            </Button>
+
+            {session?.user && (
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3">
+                  <div className="flex flex-col items-end">
+                    <span className="text-sm font-medium text-gray-900">
+                      {session.user.name || "User"}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {session.user.email}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const settings = settingsService.getSettings();
+                      const automaticLogin = settings.authentication?.automaticLogin ?? true;
+
+                      console.log("🚪 Logout clicked, automatic login:", automaticLogin);
+
+                      // Use standard logout for both cases
+                      // The automatic login difference is in the signin flow, not logout
+                      console.log("🚪 Standard logout, automatic login:", automaticLogin);
+
+                      signOut({
+                        callbackUrl: "/auth/signin",
+                        redirect: true
+                      });
+                    }}
+                    className="flex items-center space-x-2"
+                  >
+                    <LogOutIcon className="w-4 h-4" />
+                    <span className="hidden sm:inline">Logout</span>
+                  </Button>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
 

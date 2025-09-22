@@ -25,7 +25,7 @@ export const ExpenseReportSchema = z.object({
   month: z.number().int().min(1).max(12),
   year: z.number().int().min(2020).max(2030),
   description: z.string().optional(),
-  status: z.enum(["draft", "submitted", "approved"]).default("draft"),
+  status: z.enum(["draft", "submitted", "approved", "rejected"]).default("draft"),
   totalAmount: z.number().default(0),
   lineCount: z.number().int().default(0),
   exportedAt: z.date().optional(),
@@ -218,7 +218,8 @@ export type ExportSettings = z.infer<typeof ExportSettingsSchema>;
 // Environment variables schema
 export const EnvironmentSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-  NEXT_PUBLIC_USE_MOCK: z.string().transform((val) => val === "true"),
+  // NOTE: NEXT_PUBLIC_USE_MOCK kept for backward compatibility but deprecated
+  NEXT_PUBLIC_USE_MOCK: z.string().optional().transform((val) => val === "true"),
   NEXT_PUBLIC_APP_URL: z.string().url(),
   DATABASE_URL: z.string().optional(),
   AZURE_STORAGE_CONNECTION_STRING: z.string().optional(),

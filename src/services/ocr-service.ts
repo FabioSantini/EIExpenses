@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 import type { ExpenseType, OCRResult } from "@/lib/validations";
+import type { AppConfig } from "@/app/api/config/route";
 
 export interface ReceiptOCRResult {
   success: boolean;
@@ -18,11 +19,53 @@ export interface ReceiptOCRResult {
 
 class OCRService {
   private apiKey: string | null = null;
+  private configPromise: Promise<AppConfig> | null = null;
 
   constructor() {
     this.apiKey = env.OPENAI_API_KEY || null;
     console.log("🔑 OCRService initialized with API key:", this.apiKey ? "✅ Available" : "❌ Not available");
-    console.log("🔧 NEXT_PUBLIC_USE_MOCK:", env.NEXT_PUBLIC_USE_MOCK);
+    // Note: No longer logging env.NEXT_PUBLIC_USE_MOCK - will use server config instead
+  }
+
+  /**
+   * Fetch configuration from server API endpoint
+   */
+  private async fetchConfig(): Promise<AppConfig> {
+    try {
+      console.log('⚙️ OCRService: Fetching configuration from server');
+
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001';
+      const response = await fetch(`${baseUrl}/api/config`);
+
+      if (!response.ok) {
+        throw new Error(`Config API error: ${response.status} ${response.statusText}`);
+      }
+
+      const config: AppConfig = await response.json();
+      console.log('✅ OCRService: Configuration received - environment:', config.dataService.environment);
+
+      return config;
+    } catch (error) {
+      console.error('❌ OCRService: Failed to fetch config, using fallback:', error);
+
+      // Fallback configuration
+      return {
+        dataService: { environment: 'mock', available: ['mock'] },
+        features: { ocr: true, googleMaps: false, excelExport: false, pwa: false, offline: false },
+        app: { name: 'EI-Expenses', version: '0.1.0', debug: false },
+        api: { baseUrl: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001' }
+      };
+    }
+  }
+
+  /**
+   * Get configuration (cached)
+   */
+  private async getConfig(): Promise<AppConfig> {
+    if (!this.configPromise) {
+      this.configPromise = this.fetchConfig();
+    }
+    return this.configPromise;
   }
 
   /**
@@ -104,27 +147,55 @@ Grazie per la sua visita!`
   }
 
   /**
-   * Process receipt with fallback to mock in development
+   * Process receipt with fallback to mock ONLY when server config indicates mock mode
    */
   async processReceiptWithFallback(imageFile: File): Promise<ReceiptOCRResult> {
     console.log("🔍 processReceiptWithFallback called");
-    console.log("🎭 Mock mode:", env.NEXT_PUBLIC_USE_MOCK);
 
-    // Always try real API if we have the endpoint (server checks for API key)
     try {
-      console.log("📡 Trying real OpenAI GPT-4 Vision API via server");
+      // Get configuration from server
+      const config = await this.getConfig();
+      const useMockMode = config.dataService.environment === 'mock';
+
+      console.log("🎭 Server config - Mock mode enabled:", useMockMode);
+
+      // If server config indicates mock mode, use mock directly
+      if (useMockMode) {
+        console.log("🎭 Server configured for mock mode - using mock OCR processing");
+        return this.processReceiptMock(imageFile);
+      }
+
+      // Otherwise, try real API (no fallback to mock when Azure is configured)
+      console.log("📡 Server configured for Azure mode: Trying real OpenAI GPT-4 Vision API");
       const result = await this.processReceipt(imageFile);
 
       if (result.success) {
-        console.log("✅ Real OCR successful");
+        console.log("✅ Real OCR successful in Azure mode");
         return result;
       } else {
-        console.log("🔄 Real API failed, falling back to mock");
-        return this.processReceiptMock(imageFile);
+        console.error("❌ Real API failed in Azure mode - NOT falling back to mock");
+        return {
+          success: false,
+          error: result.error || "OCR processing failed. Please ensure OpenAI API key is configured."
+        };
       }
-    } catch (error) {
-      console.log("🔄 Real API error, falling back to mock:", error);
-      return this.processReceiptMock(imageFile);
+    } catch (configError) {
+      console.error("❌ Failed to get server config, trying real API:", configError);
+
+      // If config fetch fails, try real API as fallback
+      try {
+        const result = await this.processReceipt(imageFile);
+        if (result.success) {
+          return result;
+        }
+      } catch (ocrError) {
+        console.error("❌ Both config fetch and OCR failed:", ocrError);
+      }
+
+      return {
+        success: false,
+        error: "OCR processing failed. Please ensure OpenAI API key is configured."
+      };
     }
   }
 
@@ -268,20 +339,45 @@ Return valid JSON only, no additional text.`;
   }
 
   /**
-   * Check if OCR is available
+   * Check if OCR is available (async method that checks server config)
    */
-  isAvailable(): boolean {
-    return env.NEXT_PUBLIC_USE_MOCK || !!this.apiKey;
+  async isAvailable(): Promise<boolean> {
+    try {
+      const config = await this.getConfig();
+      const useMockMode = config.dataService.environment === 'mock';
+
+      // OCR is available if we're in mock mode OR if we have an API key for real mode
+      return useMockMode || !!this.apiKey;
+    } catch (error) {
+      console.error("❌ Failed to check OCR availability:", error);
+      // Fallback: available if we have an API key
+      return !!this.apiKey;
+    }
   }
 
   /**
-   * Get OCR status message
+   * Get OCR status message (async method that checks server config)
    */
-  getStatusMessage(): string {
-    if (this.apiKey) {
-      return "OCR processing available via OpenAI GPT-4 Vision";
-    } else {
-      return "OCR processing disabled - OpenAI API key not configured (using mock data)";
+  async getStatusMessage(): Promise<string> {
+    try {
+      const config = await this.getConfig();
+      const useMockMode = config.dataService.environment === 'mock';
+
+      if (useMockMode) {
+        return "OCR processing in mock mode - using test data";
+      } else if (this.apiKey) {
+        return "OCR processing available via OpenAI GPT-4 Vision (Azure mode)";
+      } else {
+        return "OCR processing disabled - OpenAI API key not configured";
+      }
+    } catch (error) {
+      console.error("❌ Failed to get OCR status:", error);
+      // Fallback status message
+      if (this.apiKey) {
+        return "OCR processing available via OpenAI GPT-4 Vision";
+      } else {
+        return "OCR processing disabled - OpenAI API key not configured";
+      }
     }
   }
 }

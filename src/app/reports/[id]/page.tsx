@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useExpenseLines, useFileUpload } from "@/hooks/use-expenses";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,9 @@ import {
 export default function ExpenseReportDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const reportId = params.id as string;
+  const reportTitle = searchParams.get('title') || 'Expense Report';
   
   const { expenses, summary, isLoading, error, deleteExpense } = useExpenseLines(reportId);
   const [mounted, setMounted] = useState(false);
@@ -139,7 +141,7 @@ export default function ExpenseReportDetailPage() {
                 Back to Dashboard
               </Button>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Expense Report Details</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{reportTitle}</h1>
                 <p className="text-slate-600 mt-1">Manage individual expense items</p>
               </div>
             </div>
@@ -281,7 +283,7 @@ export default function ExpenseReportDetailPage() {
                             <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500 mt-1">
                               <div className="flex items-center space-x-1">
                                 <CalendarIcon className="w-4 h-4" />
-                                <span>{expense.date.toLocaleDateString('it-IT')}</span>
+                                <span>{new Date(expense.date).toLocaleDateString('it-IT')}</span>
                               </div>
                               <span className="px-2 py-1 bg-slate-100 rounded text-xs font-medium">
                                 {expense.type}

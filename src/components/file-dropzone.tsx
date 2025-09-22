@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { useFileUpload } from "@/hooks/use-expenses";
 import { useToast } from "@/hooks/use-toast";
+import { ocrService } from "@/services/ocr-service";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/ui/loading";
@@ -16,11 +17,12 @@ import {
 } from "lucide-react";
 
 interface FileDropzoneProps {
-  onUploadComplete?: (receiptUrl: string, ocrResult?: any) => void;
+  onUploadComplete?: (receiptUrl: string, ocrResult?: any, fileName?: string) => void;
   onFilesSelected?: (files: File[]) => void;
   accept?: string;
   maxFiles?: number;
   disabled?: boolean;
+  reportId?: string;
 }
 
 interface UploadedFile {
@@ -38,6 +40,7 @@ export function FileDropzone({
   accept = "image/*",
   maxFiles = 5,
   disabled = false,
+  reportId,
 }: FileDropzoneProps) {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const { uploadReceipt, processWithOCR, isUploading } = useFileUpload();
@@ -63,29 +66,34 @@ export function FileDropzone({
         const fileIndex = uploadedFiles.length + i;
 
         try {
-          // Upload file
-          const receiptUrl = await uploadReceipt(fileData.file);
-          
+          // First do OCR on the file directly (same as single OCR)
           setUploadedFiles(prev => 
             prev.map((f, idx) => 
               idx === fileIndex
-                ? { ...f, url: receiptUrl, status: "processing" }
+                ? { ...f, status: "processing" }
                 : f
             )
           );
 
-          // Process with OCR
-          const ocrResult = await processWithOCR(receiptUrl);
+          console.log("📸 Processing receipt:", fileData.file.name);
+          const ocrResult = await ocrService.processReceiptWithFallback(fileData.file);
+
+          if (!ocrResult.success || !ocrResult.data) {
+            throw new Error(ocrResult.error || "OCR processing failed");
+          }
+
+          // Then upload file to get permanent URL
+          const receiptUrl = await uploadReceipt(fileData.file, reportId);
           
           setUploadedFiles(prev => 
             prev.map((f, idx) => 
               idx === fileIndex
-                ? { ...f, ocrResult, status: "completed" }
+                ? { ...f, url: receiptUrl, ocrResult: ocrResult.data, status: "completed" }
                 : f
             )
           );
 
-          onUploadComplete?.(receiptUrl, ocrResult);
+          onUploadComplete?.(receiptUrl, ocrResult.data, fileData.file.name);
 
           toast({
             title: "Upload successful",

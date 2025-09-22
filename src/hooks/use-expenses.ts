@@ -14,10 +14,17 @@ export function useExpenseReports() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadReports();
-  }, []);
+    if (dataService) {
+      loadReports();
+    }
+  }, [dataService]);
 
   const loadReports = async () => {
+    if (!dataService) {
+      setIsLoading(true);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
@@ -36,6 +43,10 @@ export function useExpenseReports() {
     year: number;
     description?: string;
   }) => {
+    if (!dataService) {
+      throw new Error("Data service not available");
+    }
+
     try {
       const newReport = await dataService.createExpenseReport(data);
       setReports(prev => [newReport, ...prev]);
@@ -47,6 +58,10 @@ export function useExpenseReports() {
   };
 
   const updateReport = async (id: string, data: Partial<ExpenseReport>) => {
+    if (!dataService) {
+      throw new Error("Data service not available");
+    }
+
     try {
       const updatedReport = await dataService.updateExpenseReport(id, data);
       setReports(prev => prev.map(r => r.id === id ? updatedReport : r));
@@ -58,6 +73,10 @@ export function useExpenseReports() {
   };
 
   const deleteReport = async (id: string) => {
+    if (!dataService) {
+      throw new Error("Data service not available");
+    }
+
     try {
       await dataService.deleteExpenseReport(id);
       setReports(prev => prev.filter(r => r.id !== id));
@@ -72,6 +91,7 @@ export function useExpenseReports() {
     isLoading,
     error,
     loadReports,
+    mutate: loadReports, // Alias for compatibility with SWR-like patterns
     createReport,
     updateReport,
     deleteReport,
@@ -88,20 +108,32 @@ export function useExpenseLines(reportId: string) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (reportId) {
+    if (reportId && dataService) {
       loadExpenses();
     }
-  }, [reportId]);
+  }, [reportId, dataService]);
 
   const loadExpenses = async () => {
-    if (!reportId) return;
-    
+    if (!reportId) {
+      setIsLoading(false);
+      return;
+    }
+
+    if (!dataService) {
+      setIsLoading(true);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
+      console.log(`🔷 useExpenseLines: Loading expenses for report ${reportId}`);
+      console.log(`🔷 useExpenseLines: Using data service:`, dataService.constructor.name);
       const data = await dataService.getExpenseLines(reportId);
+      console.log(`🔷 useExpenseLines: Loaded ${data.length} expenses`);
       setExpenses(data);
     } catch (err) {
+      console.error(`❌ useExpenseLines: Error loading expenses:`, err);
       setError(err instanceof Error ? err.message : "Failed to load expense lines");
     } finally {
       setIsLoading(false);
@@ -117,6 +149,10 @@ export function useExpenseLines(reportId: string) {
     receiptId?: string;
     metadata?: string;
   }) => {
+    if (!dataService) {
+      throw new Error("Data service not available");
+    }
+
     try {
       const newExpense = await dataService.addExpenseLine(reportId, data);
       setExpenses(prev => [newExpense, ...prev]);
@@ -127,7 +163,40 @@ export function useExpenseLines(reportId: string) {
     }
   };
 
+  const addMultipleExpenses = async (expensesData: Array<{
+    date: Date;
+    type: string;
+    description: string;
+    amount: number;
+    currency?: string;
+    receiptId?: string;
+    metadata?: string;
+  }>) => {
+    try {
+      if (!dataService) {
+        throw new Error("Data service not available");
+      }
+
+      // Process expenses one by one for now (can be optimized to batch API call later)
+      const newExpenses = [];
+      for (const expenseData of expensesData) {
+        const newExpense = await dataService.addExpenseLine(reportId, expenseData);
+        newExpenses.push(newExpense);
+      }
+      
+      setExpenses(prev => [...newExpenses, ...prev]);
+      return newExpenses;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add expense lines");
+      throw err;
+    }
+  };
+
   const updateExpense = async (id: string, data: Partial<ExpenseLine>) => {
+    if (!dataService) {
+      throw new Error("Data service not available");
+    }
+
     try {
       const updatedExpense = await dataService.updateExpenseLine(id, data);
       setExpenses(prev => prev.map(e => e.id === id ? updatedExpense : e));
@@ -139,6 +208,10 @@ export function useExpenseLines(reportId: string) {
   };
 
   const deleteExpense = async (id: string) => {
+    if (!dataService) {
+      throw new Error("Data service not available");
+    }
+
     try {
       await dataService.deleteExpenseLine(id);
       setExpenses(prev => prev.filter(e => e.id !== id));
@@ -166,6 +239,7 @@ export function useExpenseLines(reportId: string) {
     error,
     loadExpenses,
     addExpense,
+    addMultipleExpenses,
     updateExpense,
     deleteExpense,
   };
@@ -179,11 +253,15 @@ export function useFileUpload() {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const uploadReceipt = async (file: File) => {
+  const uploadReceipt = async (file: File, reportId?: string) => {
+    if (!dataService) {
+      throw new Error("Data service not available");
+    }
+
     try {
       setIsUploading(true);
       setError(null);
-      const url = await dataService.uploadReceipt(file);
+      const url = await dataService.uploadReceipt(file, reportId);
       return url;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to upload receipt");
@@ -194,6 +272,10 @@ export function useFileUpload() {
   };
 
   const processWithOCR = async (receiptId: string) => {
+    if (!dataService) {
+      throw new Error("Data service not available");
+    }
+
     try {
       setError(null);
       const ocrResult = await dataService.processReceiptOCR(receiptId);
@@ -219,6 +301,10 @@ export function useSuggestions() {
   const dataService = useDataService();
 
   const getCustomerSuggestions = async (query?: string) => {
+    if (!dataService) {
+      return [];
+    }
+
     try {
       return await dataService.getCustomerSuggestions(query);
     } catch (err) {
@@ -228,6 +314,10 @@ export function useSuggestions() {
   };
 
   const getColleagueSuggestions = async (query?: string) => {
+    if (!dataService) {
+      return [];
+    }
+
     try {
       return await dataService.getColleagueSuggestions(query);
     } catch (err) {
@@ -237,6 +327,10 @@ export function useSuggestions() {
   };
 
   const updateCustomerUsage = async (name: string) => {
+    if (!dataService) {
+      return;
+    }
+
     try {
       await dataService.updateCustomerUsage(name);
     } catch (err) {
@@ -245,6 +339,10 @@ export function useSuggestions() {
   };
 
   const updateColleagueUsage = async (name: string) => {
+    if (!dataService) {
+      return;
+    }
+
     try {
       await dataService.updateColleagueUsage(name);
     } catch (err) {
@@ -269,6 +367,10 @@ export function useExport() {
   const [error, setError] = useState<string | null>(null);
 
   const exportToExcel = async (reportId: string, settings?: any) => {
+    if (!dataService) {
+      throw new Error("Data service not available");
+    }
+
     try {
       setIsExporting(true);
       setError(null);
@@ -294,6 +396,10 @@ export function useExport() {
   };
 
   const exportWithReceipts = async (reportId: string, settings?: any) => {
+    if (!dataService) {
+      throw new Error("Data service not available");
+    }
+
     try {
       setIsExporting(true);
       setError(null);

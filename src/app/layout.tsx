@@ -1,6 +1,5 @@
 import "./globals.css";
-import { DataServiceProvider } from "@/services/data-service-provider";
-import { Toaster } from "@/components/ui/toaster";
+import { Providers } from "./providers";
 
 export const dynamic = 'force-dynamic';
 
@@ -17,10 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <DataServiceProvider>
+        <Providers>
           {children}
-          <Toaster />
-        </DataServiceProvider>
+        </Providers>
       </body>
     </html>
   );

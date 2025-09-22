@@ -26,7 +26,9 @@ import {
   RefreshCwIcon,
   DownloadIcon,
   UploadIcon,
+  ShieldIcon,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 // Form validation schema
 const SettingsFormSchema = z.object({
@@ -35,6 +37,8 @@ const SettingsFormSchema = z.object({
   defaultCurrency: z.string().length(3),
   theme: z.enum(["light", "dark", "system"]),
   dateFormat: z.enum(["dd/mm/yyyy", "mm/dd/yyyy", "yyyy-mm-dd"]),
+  automaticLogin: z.boolean(),
+  authPrompt: z.enum(["none", "login", "select_account"]),
 });
 
 type SettingsFormData = z.infer<typeof SettingsFormSchema>;
@@ -58,22 +62,32 @@ export default function SettingsPage() {
 
   // Load settings on mount
   useEffect(() => {
+    console.log("🔄 Loading settings...");
     const currentSettings = settingsService.getSettings();
+    console.log("📋 Current settings loaded:", currentSettings);
     setSettings(currentSettings);
 
-    // Set form values
-    reset({
+    const formValues = {
       fuelCostPerKm: currentSettings.fuel.costPerKm,
       defaultVehicleType: currentSettings.fuel.defaultVehicleType,
       defaultCurrency: currentSettings.currency.default,
       theme: currentSettings.ui.theme,
       dateFormat: currentSettings.ui.dateFormat,
-    });
+      automaticLogin: currentSettings.authentication?.automaticLogin ?? true,
+      authPrompt: currentSettings.authentication?.prompt ?? "none",
+    };
+    console.log("📝 Setting form values:", formValues);
+
+    // Set form values
+    reset(formValues);
   }, [reset]);
 
   const onSubmit = async (data: SettingsFormData) => {
+    console.log("🚀 === FORM SUBMISSION STARTED ===");
+    console.log("Settings form submitted with data:", data);
     setIsLoading(true);
     try {
+      console.log("Updating settings...");
       const updatedSettings = settingsService.updateSettings({
         fuel: {
           costPerKm: data.fuelCostPerKm,
@@ -88,15 +102,27 @@ export default function SettingsPage() {
           theme: data.theme,
           dateFormat: data.dateFormat,
         },
+        authentication: {
+          automaticLogin: data.automaticLogin,
+          prompt: data.authPrompt,
+        },
       });
 
+      console.log("Settings updated successfully:", updatedSettings);
       setSettings(updatedSettings);
 
       toast({
         title: "Settings Saved",
         description: "Your preferences have been saved successfully.",
       });
+
+      console.log("Navigating to reports page...");
+      // Navigate to dashboard after successful save
+      setTimeout(() => {
+        router.push("/reports");
+      }, 500);
     } catch (error) {
+      console.error("Error saving settings:", error);
       toast({
         title: "Error",
         description: "Failed to save settings. Please try again.",
@@ -117,6 +143,8 @@ export default function SettingsPage() {
       defaultCurrency: defaultSettings.currency.default,
       theme: defaultSettings.ui.theme,
       dateFormat: defaultSettings.ui.dateFormat,
+      automaticLogin: defaultSettings.authentication?.automaticLogin ?? true,
+      authPrompt: defaultSettings.authentication?.prompt ?? "none",
     });
 
     toast({
@@ -168,6 +196,8 @@ export default function SettingsPage() {
           defaultCurrency: importedSettings.currency.default,
           theme: importedSettings.ui.theme,
           dateFormat: importedSettings.ui.dateFormat,
+          automaticLogin: importedSettings.authentication?.automaticLogin ?? true,
+          authPrompt: importedSettings.authentication?.prompt ?? "none",
         });
 
         toast({
@@ -251,7 +281,7 @@ export default function SettingsPage() {
                   <Label htmlFor="defaultVehicleType">Default Vehicle Type</Label>
                   <Select
                     value={watch("defaultVehicleType")}
-                    onValueChange={(value) => setValue("defaultVehicleType", value as any)}
+                    onValueChange={(value) => setValue("defaultVehicleType", value as any, { shouldDirty: true })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select vehicle type" />
@@ -288,7 +318,7 @@ export default function SettingsPage() {
                   <Label htmlFor="defaultCurrency">Default Currency</Label>
                   <Select
                     value={watch("defaultCurrency")}
-                    onValueChange={(value) => setValue("defaultCurrency", value)}
+                    onValueChange={(value) => setValue("defaultCurrency", value, { shouldDirty: true })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select currency" />
@@ -305,7 +335,7 @@ export default function SettingsPage() {
                   <Label htmlFor="dateFormat">Date Format</Label>
                   <Select
                     value={watch("dateFormat")}
-                    onValueChange={(value) => setValue("dateFormat", value as any)}
+                    onValueChange={(value) => setValue("dateFormat", value as any, { shouldDirty: true })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select date format" />
@@ -321,6 +351,64 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* Authentication Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <ShieldIcon className="w-5 h-5 mr-2" />
+                Authentication Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <Label htmlFor="automaticLogin" className="text-base font-medium">
+                    Automatic Login
+                  </Label>
+                  <p className="text-sm text-slate-600 mt-1">
+                    When enabled, you'll be automatically signed in if you have an active session.
+                    Disable this for testing with multiple accounts.
+                  </p>
+                </div>
+                <Switch
+                  id="automaticLogin"
+                  checked={watch("automaticLogin")}
+                  onCheckedChange={(checked) => setValue("automaticLogin", checked, { shouldDirty: true })}
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="authPrompt">Login Prompt Behavior</Label>
+                <Select
+                  value={watch("authPrompt")}
+                  onValueChange={(value) => setValue("authPrompt", value as any, { shouldDirty: true })}
+                  disabled={!watch("automaticLogin")}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select prompt behavior" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (Silent login)</SelectItem>
+                    <SelectItem value="login">Login (Show login form)</SelectItem>
+                    <SelectItem value="select_account">Select Account (Account chooser)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500 mt-1">
+                  Controls Azure AD prompt behavior when automatic login is enabled
+                </p>
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+                <h4 className="font-medium text-amber-900 mb-1">Development Tip</h4>
+                <p className="text-sm text-amber-700">
+                  Disable automatic login to test with different user accounts during development.
+                  In production, enable it for seamless user experience.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* UI Settings */}
           <Card>
             <CardHeader>
@@ -331,7 +419,7 @@ export default function SettingsPage() {
                 <Label htmlFor="theme">Theme</Label>
                 <Select
                   value={watch("theme")}
-                  onValueChange={(value) => setValue("theme", value as any)}
+                  onValueChange={(value) => setValue("theme", value as any, { shouldDirty: true })}
                 >
                   <SelectTrigger className="max-w-xs">
                     <SelectValue placeholder="Select theme" />
@@ -355,6 +443,12 @@ export default function SettingsPage() {
               type="submit"
               disabled={isLoading || !isDirty}
               className="flex-1 sm:flex-none"
+              onClick={() => {
+                console.log("🔵 Save button clicked!");
+                console.log("🔍 Form state - isDirty:", isDirty);
+                console.log("🔍 Form state - isLoading:", isLoading);
+                console.log("🔍 Button disabled:", isLoading || !isDirty);
+              }}
             >
               <SaveIcon className="w-4 h-4 mr-2" />
               {isLoading ? "Saving..." : "Save Settings"}

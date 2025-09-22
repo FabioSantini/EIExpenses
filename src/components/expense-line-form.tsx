@@ -57,8 +57,9 @@ const expenseTypes: ExpenseType[] = [
   "OTHER",
 ];
 
-// Form validation schema
+// Form validation schema - only validate core required fields
 const expenseLineSchema = z.object({
+  // Core required fields for ALL expense types
   date: z.string().min(1, "Date is required"),
   type: z.enum(expenseTypes as [ExpenseType, ...ExpenseType[]], {
     required_error: "Expense type is required"
@@ -68,22 +69,22 @@ const expenseLineSchema = z.object({
   currency: z.string().default("EUR"),
   receiptId: z.string().optional(),
 
-  // Metadata fields (we'll process these into typed metadata)
+  // All metadata fields are optional with no validation - they'll be processed based on expense type
   customer: z.string().optional(),
   colleagues: z.string().optional(),
   startLocation: z.string().optional(),
   endLocation: z.string().optional(),
   distance: z.number().optional(),
   roundtrip: z.boolean().optional(),
-  vehicleType: z.enum(["car", "truck", "motorcycle"]).optional(),
+  vehicleType: z.string().optional(),
   liters: z.number().optional(),
   location: z.string().optional(),
-  nights: z.number().int().positive().optional(),
+  nights: z.number().optional(),
   room: z.string().optional(),
   duration: z.string().optional(),
   zone: z.string().optional(),
   route: z.string().optional(),
-  class: z.enum(["1st", "2nd", "business", "economy"]).optional(),
+  class: z.string().optional(),
   departure: z.string().optional(),
   arrival: z.string().optional(),
 });
@@ -129,38 +130,42 @@ export function ExpenseLineForm({
 
   const isEditing = !!expenseId && !!initialData;
 
-  // Parse initial metadata
+  // Parse initial metadata - only set values that actually exist
   const getInitialMetadata = () => {
     if (!initialData?.metadata || typeof initialData.metadata !== 'object') {
       return {};
     }
 
     // Handle different metadata structures
+    let metadata;
     if ('data' in initialData.metadata && typeof initialData.metadata.data === 'object') {
-      return initialData.metadata.data;
+      metadata = initialData.metadata.data;
+    } else {
+      metadata = initialData.metadata;
     }
 
-    // Fallback to metadata itself
-    const metadata = initialData.metadata;
-    return {
-      startLocation: metadata.startLocation || "",
-      endLocation: metadata.endLocation || "",
-      distance: metadata.distance || 0,
-      roundtrip: metadata.roundtrip || false,
-      vehicleType: metadata.vehicleType || "car",
-      liters: metadata.liters || 0,
-      customer: metadata.customer || "",
-      colleagues: metadata.colleagues || "",
-      location: metadata.location || "",
-      nights: metadata.nights || 0,
-      room: metadata.room || "",
-      duration: metadata.duration || "",
-      zone: metadata.zone || "",
-      route: metadata.route || "",
-      class: metadata.class || "",
-      departure: metadata.departure || "",
-      arrival: metadata.arrival || "",
-    };
+    // Only return fields that have actual values - no empty defaults
+    const result: any = {};
+
+    if (metadata.startLocation) result.startLocation = metadata.startLocation;
+    if (metadata.endLocation) result.endLocation = metadata.endLocation;
+    if (metadata.distance && metadata.distance > 0) result.distance = metadata.distance;
+    if (metadata.roundtrip !== undefined) result.roundtrip = metadata.roundtrip;
+    if (metadata.vehicleType) result.vehicleType = metadata.vehicleType;
+    if (metadata.liters && metadata.liters > 0) result.liters = metadata.liters;
+    if (metadata.customer) result.customer = metadata.customer;
+    if (metadata.colleagues) result.colleagues = metadata.colleagues;
+    if (metadata.location) result.location = metadata.location;
+    if (metadata.nights && metadata.nights > 0) result.nights = metadata.nights;
+    if (metadata.room) result.room = metadata.room;
+    if (metadata.duration) result.duration = metadata.duration;
+    if (metadata.zone) result.zone = metadata.zone;
+    if (metadata.route) result.route = metadata.route;
+    if (metadata.class) result.class = metadata.class;
+    if (metadata.departure) result.departure = metadata.departure;
+    if (metadata.arrival) result.arrival = metadata.arrival;
+
+    return result;
   };
 
   const {
@@ -168,7 +173,7 @@ export function ExpenseLineForm({
     handleSubmit,
     setValue,
     watch,
-    formState: { errors },
+    formState: { errors, isValid, isDirty },
   } = useForm<FormData>({
     resolver: zodResolver(expenseLineSchema),
     defaultValues: {
@@ -252,22 +257,6 @@ export function ExpenseLineForm({
     const currentStartLocation = startLocationInput?.value || "";
     const currentEndLocation = endLocationInput?.value || "";
 
-    console.log("🔲 Manual distance calculation triggered");
-    console.log("🔲 DOM Start location:", currentStartLocation);
-    console.log("🔲 DOM Start location (length):", currentStartLocation?.length);
-    console.log("🔲 DOM End location:", currentEndLocation);
-    console.log("🔲 DOM End location (length):", currentEndLocation?.length);
-
-    // Check amount field BEFORE calculation
-    console.log("💰 BEFORE CALCULATION:");
-    console.log("💰 Amount field DOM value:", amountFieldBefore?.value);
-    console.log("💰 Amount form value:", watch("amount"));
-    console.log("💰 Amount field type:", amountFieldBefore?.type);
-    console.log("💰 Amount field disabled:", amountFieldBefore?.disabled);
-
-    // Also compare with React Hook Form values
-    console.log("🔲 Form Start location:", watch("startLocation"));
-    console.log("🔲 Form End location:", watch("endLocation"));
 
     if (!currentStartLocation?.trim() || !currentEndLocation?.trim()) {
       toast({
@@ -285,16 +274,12 @@ export function ExpenseLineForm({
   // Generic distance calculation function that accepts addresses as parameters
   const calculateDistanceWithAddresses = async (startLocation: string, endLocation: string) => {
     if (!startLocation || !endLocation) {
-      console.log("Missing addresses for distance calculation");
       return;
     }
 
     if (isCalculatingDistance) {
-      console.log("Distance calculation already in progress");
       return;
     }
-
-    console.log(`Calculating distance: ${startLocation} -> ${endLocation}`);
     setIsCalculatingDistance(true);
     setDistanceError(null);
 
@@ -405,6 +390,7 @@ export function ExpenseLineForm({
   };
 
   const onSubmit = async (data: FormData) => {
+    console.log('🔄 ExpenseLineForm: onSubmit called', { isEditing, expenseId, hasInitialData: !!initialData });
     setIsSubmitting(true);
     try {
       // For FUEL expenses, read the actual DOM values for locations to ensure we get the selected Google Places values
@@ -508,7 +494,9 @@ export function ExpenseLineForm({
       let result: ExpenseLine;
 
       if (isEditing) {
+        console.log('🔄 ExpenseLineForm: Calling updateExpense', { expenseId, expenseData });
         result = await updateExpense(expenseId, expenseData);
+        console.log('✅ ExpenseLineForm: updateExpense successful', { result });
         toast({
           title: "Expense Updated",
           description: "Expense line has been updated successfully.",
@@ -1105,8 +1093,9 @@ export function ExpenseLineForm({
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <Button
                   type="submit"
-                  disabled={isSubmitting || isLoading}
+                  disabled={isSubmitting}
                   className="flex-1"
+                  onClick={() => console.log('🔘 Submit button clicked!', { isSubmitting, isEditing, expenseId, isValid, isDirty, errors })}
                 >
                   <SaveIcon className="w-4 h-4 mr-2" />
                   {isSubmitting ? "Saving..." : isEditing ? "Update Expense" : "Add Expense"}

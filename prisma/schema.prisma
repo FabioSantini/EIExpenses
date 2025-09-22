@@ -1,5 +1,5 @@
-// Simplified Prisma schema for EI-Expenses
-// This schema defines the core data structure for expense tracking and Excel export
+// Prisma schema for EI-Expenses with Azure SQL Database
+// Multi-tenancy managed through user_email (from Entra ID authentication)
 
 generator client {
   provider = "prisma-client-js"
@@ -10,84 +10,107 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model - basic authentication
-model User {
-  id             String          @id @default(cuid())
-  email          String          @unique
-  name           String
-  expenseReports ExpenseReport[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-
-  @@index([email])
-}
-
 // ExpenseReport - Container for expense lines (typically monthly)
+// No User table needed - we use user_email from Entra ID for multi-tenancy
 model ExpenseReport {
   id           String        @id @default(cuid())
-  userId       String
-  user         User          @relation(fields: [userId], references: [id])
+  user_email   String        // From Entra ID authentication
+  user_name    String        // Display name from Entra ID
   title        String        // e.g., "January 2025 Expenses"
   month        Int           // 1-12
   year         Int           // e.g., 2025
   description  String?       // Optional notes
-  expenseLines ExpenseLine[]
-  exportedAt   DateTime?     // When Excel was last generated
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  status       String        @default("draft") // draft, submitted, approved
+  total_amount Decimal       @default(0) @db.Decimal(10, 2)
+  line_count   Int           @default(0) // Number of expense lines
+  expense_lines ExpenseLine[]
+  exported_at  DateTime?     // When Excel was last generated
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
 
-  @@index([userId, year, month])
-  @@unique([userId, year, month])
+  @@index([user_email, year, month])
+  @@map("expense_reports")
 }
 
 // ExpenseLine - Individual expense item
 model ExpenseLine {
   id              String        @id @default(cuid())
-  reportId        String
-  report          ExpenseReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  
+  report_id       String
+  report          ExpenseReport @relation(fields: [report_id], references: [id], onDelete: Cascade)
+  user_email      String        // Denormalized for query performance
+
   // Core expense fields
   date            DateTime
   type            String        // PARKING, FUEL, TELEPASS, LUNCH, DINNER, HOTEL, TRAIN, BREAKFAST, TOURIST_TAX, OTHER
-  description     String
+  description     String        @db.NVarChar(500)
   amount          Decimal       @db.Decimal(10, 2)
-  currency        String        @default("EUR")
-  
+  currency        String        @default("EUR") @db.VarChar(3)
+
   // Receipt data
-  receiptUrl      String?       // Azure Blob Storage URL
-  ocrProcessed    Boolean       @default(false)
-  ocrData         String?       // Raw OCR extraction results as JSON string
-  
+  receipt_url     String?       @db.NVarChar(1000) // Azure Blob Storage URL
+  ocr_processed   Boolean       @default(false)
+  ocr_data        String?       @db.NVarChar(MAX) // Raw OCR extraction results as JSON string
+
   // Type-specific metadata (stored as JSON string for SQL Server compatibility)
   // For FUEL: { startLocation, endLocation, kilometers }
   // For LUNCH/DINNER/BREAKFAST: { customer, colleagues[] }
   // For HOTEL: { nights, location }
-  metadata        String?       // JSON string
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  metadata        String?       @db.NVarChar(MAX) // JSON string
 
-  @@index([reportId, date])
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+
+  @@index([report_id, date])
+  @@index([user_email])
   @@index([type])
+  @@map("expense_lines")
 }
 
-// Simplified helper tables - just for autocomplete suggestions
-// These are populated automatically from expense history
+// Customer suggestions - populated from expense history, filtered by user
+model Customer {
+  id          String   @id @default(cuid())
+  user_email  String   // Multi-tenancy
+  name        String   @db.NVarChar(255)
+  company     String?  @db.NVarChar(255)
+  usage_count Int      @default(1)
+  last_used   DateTime @default(now())
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 
-model CustomerSuggestion {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  usageCount Int     @default(1)
-  lastUsed  DateTime @default(now())
-
-  @@index([name])
+  @@unique([user_email, name])
+  @@index([user_email])
+  @@map("customers")
 }
 
-model ColleagueSuggestion {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  usageCount Int     @default(1)
-  lastUsed  DateTime @default(now())
+// Colleague suggestions - populated from expense history, filtered by user
+model Colleague {
+  id          String   @id @default(cuid())
+  user_email  String   // Multi-tenancy
+  name        String   @db.NVarChar(255)
+  email       String?  @db.VarChar(255)
+  department  String?  @db.NVarChar(255)
+  usage_count Int      @default(1)
+  last_used   DateTime @default(now())
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 
-  @@index([name])
+  @@unique([user_email, name])
+  @@index([user_email])
+  @@map("colleagues")
+}
+
+// Settings - user-specific application settings
+model Settings {
+  id                String   @id @default(cuid())
+  user_email        String   @unique
+  automatic_login   Boolean  @default(true)
+  default_currency  String   @default("EUR") @db.VarChar(3)
+  date_format       String   @default("DD/MM/YYYY") @db.VarChar(20)
+  language          String   @default("en") @db.VarChar(5)
+  theme             String   @default("light") @db.VarChar(20)
+  settings_json     String?  @db.NVarChar(MAX) // Additional settings as JSON
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  @@map("settings")
 }

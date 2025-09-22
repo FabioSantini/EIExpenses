@@ -20,12 +20,32 @@ import { mockConfig } from "@/lib/env";
  */
 export class MockDataService implements IDataService {
   private storageKey = "ei-expenses-mock-data";
+  private userEmail: string | null = null;
 
-  constructor() {
+  constructor(userEmail?: string) {
+    // Store user context if provided
+    if (userEmail) {
+      this.userEmail = userEmail;
+      console.log(`👤 MockDataService: User context set to ${userEmail}`);
+    }
+
     // Only initialize on client side
     if (typeof window !== 'undefined') {
       this.initializeData();
     }
+  }
+
+  setUserContext(email: string): void {
+    this.userEmail = email;
+    console.log(`👤 MockDataService: User context updated to ${email}`);
+  }
+
+  private getUserId(): string {
+    // Convert email to safe user ID format
+    if (this.userEmail) {
+      return this.userEmail.replace('@', '_').replace(/\./g, '_');
+    }
+    return 'user_1'; // Default for backwards compatibility
   }
 
   private initializeData(): void {
@@ -104,7 +124,19 @@ export class MockDataService implements IDataService {
   // User Management
   async getCurrentUser(): Promise<User> {
     await delay(mockConfig.dataDelay);
-    return this.getData().user;
+    const userData = this.getData().user;
+
+    // Update user data with current context if available
+    if (this.userEmail) {
+      return {
+        ...userData,
+        id: this.getUserId(),
+        email: this.userEmail,
+        name: this.userEmail.split('@')[0] // Simple name extraction
+      };
+    }
+
+    return userData;
   }
 
   // Expense Reports
@@ -128,7 +160,7 @@ export class MockDataService implements IDataService {
       const testReports: ExpenseReport[] = [
         {
           id: 'test-1',
-          userId: 'user_1',
+          userId: this.getUserId(),
           title: `Current Month Report ${currentMonth}/${currentYear}`,
           month: currentMonth,
           year: currentYear,
@@ -141,7 +173,7 @@ export class MockDataService implements IDataService {
         },
         {
           id: 'test-2',
-          userId: 'user_1',
+          userId: this.getUserId(),
           title: 'Test Report March 2025',
           month: 3,
           year: 2025,
@@ -154,7 +186,7 @@ export class MockDataService implements IDataService {
         },
         {
           id: 'test-3',
-          userId: 'user_1',
+          userId: this.getUserId(),
           title: 'Test Report February 2025',
           month: 2,
           year: 2025,
@@ -170,12 +202,17 @@ export class MockDataService implements IDataService {
       return testReports;
     }
     
-    return data.reports.map((r: any) => ({
-      ...r,
-      createdAt: new Date(r.createdAt),
-      updatedAt: new Date(r.updatedAt),
-      exportedAt: r.exportedAt ? new Date(r.exportedAt) : undefined,
-    }));
+    const userId = this.getUserId();
+
+    // Filter reports by current user
+    return data.reports
+      .filter((r: any) => r.userId === userId)
+      .map((r: any) => ({
+        ...r,
+        createdAt: new Date(r.createdAt),
+        updatedAt: new Date(r.updatedAt),
+        exportedAt: r.exportedAt ? new Date(r.exportedAt) : undefined,
+      }));
   }
 
   async getExpenseReport(id: string): Promise<ExpenseReport> {
@@ -193,7 +230,7 @@ export class MockDataService implements IDataService {
     
     const newReport: ExpenseReport = {
       id: generateId(),
-      userId: "user_1",
+      userId: this.getUserId(),
       title: data.title,
       month: data.month,
       year: data.year,
@@ -414,7 +451,7 @@ export class MockDataService implements IDataService {
   }
 
   // File Operations
-  async uploadReceipt(file: File): Promise<string> {
+  async uploadReceipt(file: File, reportId?: string): Promise<string> {
     await delay(mockConfig.dataDelay * 2); // Longer delay for file upload
     
     // Create a blob URL for the file (will work in browser)

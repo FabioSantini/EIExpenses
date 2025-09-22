@@ -76,9 +76,8 @@ export default function UploadPage() {
 
   // Get recent reports for quick selection
   const recentReports = reports
-    .filter(r => r.status === "draft")
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    .slice(0, 5);
+    .slice(0, 10);
 
   return (
     <div className="min-h-screen bg-background">
@@ -146,7 +145,7 @@ export default function UploadPage() {
               <div className="flex items-center space-x-2">
                 <FileTextIcon className="w-5 h-5 text-warning" />
                 <div>
-                  <p className="font-medium text-warning">No draft reports found</p>
+                  <p className="font-medium text-warning">No expense reports found</p>
                   <p className="text-sm text-muted-foreground">
                     Create a new expense report to get started.
                   </p>
@@ -162,6 +161,7 @@ export default function UploadPage() {
             onUploadComplete={handleUploadComplete}
             maxFiles={10}
             disabled={isLoading}
+            reportId={selectedReportId}
           />
         </div>
 

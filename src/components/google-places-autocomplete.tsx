@@ -92,13 +92,10 @@ export function GooglePlacesAutocomplete({
                 name: place?.name
               });
               if (place && place.formatted_address) {
-                console.log("🗺️ SETTING INPUT VALUE TO:", place.formatted_address);
                 // Update the input value immediately for visual feedback
                 if (inputRef.current) {
                   inputRef.current.value = place.formatted_address;
-                  console.log("🗺️ INPUT FIELD NOW CONTAINS:", inputRef.current.value);
                 }
-                console.log("🗺️ CALLING onChange WITH:", place.formatted_address);
                 onChange(place.formatted_address);
                 onPlaceSelect?.(place);
               }

@@ -1,43 +1,61 @@
 import type { IDataService } from "./data-service";
 import { MockDataService } from "./mock-data-service";
+import { AzureSqlDataService } from "./azure-sql-data-service";
+import type { AppConfig } from "@/app/api/config/route";
 
 export type DataServiceEnvironment = 'mock' | 'azure';
 
 interface DataServiceOptions {
   environment?: DataServiceEnvironment;
+  userEmail?: string | null;
 }
 
 /**
- * Factory for creating data service instances based on environment
+ * Factory for creating data service instances based on centralized server configuration
  * Supports mock (local development) and azure (production) environments
+ * Configuration is fetched securely from server-side /api/config endpoint
  */
 export class DataServiceFactory {
   private static instance: IDataService | null = null;
   private static currentEnvironment: DataServiceEnvironment | null = null;
+  private static configCache: AppConfig | null = null;
+  private static configPromise: Promise<AppConfig> | null = null;
 
   /**
-   * Create a data service instance based on environment
+   * Create a data service instance based on server configuration
    */
-  static create(options: DataServiceOptions = {}): IDataService {
+  static async create(options: DataServiceOptions = {}): Promise<IDataService> {
+    const config = await this.getConfig();
     const {
-      environment = this.getEnvironmentFromConfig()
+      environment = config.dataService.environment,
+      userEmail
     } = options;
 
     // Return existing instance if same environment
     if (this.instance && this.currentEnvironment === environment) {
+      // Update user context if provided
+      if (userEmail && this.instance.setUserContext) {
+        this.instance.setUserContext(userEmail);
+      }
       return this.instance;
     }
 
-    console.log(`🏭 DataServiceFactory: Creating ${environment} data service`);
+    console.log(`🏭 DataServiceFactory: Creating ${environment} data service (from server config)`);
+    console.log(`🔷 DataServiceFactory: Environment forced to:`, environment);
 
     switch (environment) {
       case 'mock':
-        this.instance = new MockDataService();
+        console.log(`🔷 DataServiceFactory: Creating MockDataService`);
+        this.instance = new MockDataService(userEmail || undefined);
         break;
 
       case 'azure':
-        // TODO: Implement AzureDataService
-        throw new Error('Azure data service not yet implemented - will be available when we build the production version');
+        console.log(`🔷 DataServiceFactory: Creating AzureSqlDataService`);
+        this.instance = new AzureSqlDataService();
+        if (userEmail && this.instance.setUserContext) {
+          this.instance.setUserContext(userEmail);
+        }
+        break;
 
       default:
         throw new Error(`Unknown data service environment: ${environment}. Supported: 'mock', 'azure'`);
@@ -53,36 +71,84 @@ export class DataServiceFactory {
   }
 
   /**
-   * Get environment from app configuration
+   * Get configuration from centralized server endpoint
+   * Uses caching to avoid repeated API calls
    */
-  private static getEnvironmentFromConfig(): DataServiceEnvironment {
-    if (typeof window === 'undefined') {
-      return 'mock'; // Server-side default
+  private static async getConfig(): Promise<AppConfig> {
+    // Return cached config if available
+    if (this.configCache) {
+      return this.configCache;
     }
 
-    // Check environment variables
-    const useMock = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
-    const nodeEnv = process.env.NODE_ENV;
-
-    // Use mock for development, testing, or when explicitly requested
-    if (useMock || nodeEnv === 'development' || nodeEnv === 'test') {
-      return 'mock';
+    // Return existing promise if already fetching
+    if (this.configPromise) {
+      return this.configPromise;
     }
 
-    // Check for Azure configuration in production
-    const hasAzureConfig = process.env.DATABASE_URL && process.env.AZURE_STORAGE_CONNECTION_STRING;
-    if (hasAzureConfig && nodeEnv === 'production') {
-      return 'azure';
-    }
+    // Fetch configuration from server
+    this.configPromise = this.fetchConfig();
+    this.configCache = await this.configPromise;
+    this.configPromise = null;
 
-    // Default to mock for safety
-    return 'mock';
+    return this.configCache;
+  }
+
+  /**
+   * Fetch configuration from server API endpoint
+   */
+  private static async fetchConfig(): Promise<AppConfig> {
+    try {
+      console.log('⚙️ DataServiceFactory: Fetching configuration from server');
+
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001';
+      const response = await fetch(`${baseUrl}/api/config`);
+
+      if (!response.ok) {
+        throw new Error(`Config API error: ${response.status} ${response.statusText}`);
+      }
+
+      const config: AppConfig = await response.json();
+
+      console.log('✅ DataServiceFactory: Configuration received:', {
+        dataService: config.dataService.environment,
+        available: config.dataService.available,
+        features: Object.keys(config.features).filter(k => config.features[k as keyof typeof config.features])
+      });
+
+      return config;
+
+    } catch (error) {
+      console.warn('⚠️ DataServiceFactory: Failed to fetch config, using fallback:', error);
+
+      // Fallback configuration
+      return {
+        dataService: {
+          environment: 'mock',
+          available: ['mock']
+        },
+        features: {
+          ocr: false,
+          googleMaps: false,
+          excelExport: false,
+          pwa: false,
+          offline: false
+        },
+        app: {
+          name: 'EI-Expenses',
+          version: '0.1.0',
+          debug: false
+        },
+        api: {
+          baseUrl: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001'
+        }
+      };
+    }
   }
 
   /**
    * Switch to a different environment (useful for testing and admin tools)
    */
-  static switch(environment: DataServiceEnvironment): IDataService {
+  static async switch(environment: DataServiceEnvironment): Promise<IDataService> {
     console.log(`🔄 DataServiceFactory: Switching from ${this.currentEnvironment} to ${environment}`);
 
     // Clean up existing instance if needed
@@ -99,9 +165,9 @@ export class DataServiceFactory {
   /**
    * Get current data service instance
    */
-  static getInstance(): IDataService {
+  static async getInstance(): Promise<IDataService> {
     if (!this.instance) {
-      this.instance = this.create();
+      this.instance = await this.create();
     }
     return this.instance;
   }
@@ -114,17 +180,27 @@ export class DataServiceFactory {
   }
 
   /**
-   * Get available environments
+   * Get available environments from server configuration
    */
-  static getAvailableEnvironments(): DataServiceEnvironment[] {
-    const environments: DataServiceEnvironment[] = ['mock'];
+  static async getAvailableEnvironments(): Promise<DataServiceEnvironment[]> {
+    const config = await this.getConfig();
+    return config.dataService.available;
+  }
 
-    // Check for Azure configuration
-    if (process.env.DATABASE_URL && process.env.AZURE_STORAGE_CONNECTION_STRING) {
-      environments.push('azure');
-    }
+  /**
+   * Get application configuration (useful for components that need config)
+   */
+  static async getAppConfig(): Promise<AppConfig> {
+    return this.getConfig();
+  }
 
-    return environments;
+  /**
+   * Clear configuration cache (useful for testing or config changes)
+   */
+  static clearConfigCache(): void {
+    console.log('🧹 DataServiceFactory: Clearing configuration cache');
+    this.configCache = null;
+    this.configPromise = null;
   }
 
   /**
@@ -144,5 +220,5 @@ export class DataServiceFactory {
   }
 }
 
-// Create and export default instance
-export const dataService = DataServiceFactory.getInstance();
+// Note: Default instance creation is now async
+// Components should use DataServiceFactory.getInstance() or DataServiceProvider
