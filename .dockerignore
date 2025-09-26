@@ -1,0 +1,72 @@
+# Git
+.git
+.gitignore
+
+# Environment files (secrets should be injected at runtime)
+.env
+.env.local
+.env.*.local
+
+# Development files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Dependencies (will be installed fresh in Docker)
+node_modules
+
+# Build outputs (will be built fresh in Docker)
+.next
+out
+dist
+
+# Test files
+coverage
+.nyc_output
+*.test.js
+*.spec.js
+__tests__
+.playwright-mcp
+
+# Documentation
+*.md
+LICENSE
+docs
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+LogFiles
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Azure deployment artifacts
+deploy-*
+deployments
+azure-test-*
+*.tar.gz
+*.zip
+
+# Certificates (should be managed separately)
+certificates
+
+# Media files not needed in runtime
+*.mp4
+*.jpg
+phone*.jpg
+homepage.jpg
+
+# Test files
+test-*
+simple-test.*
+nul
+
+# Development scripts that aren't needed in production
+scripts/test-*
+scripts/dev-*
