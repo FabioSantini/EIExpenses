@@ -2,6 +2,8 @@ import "./globals.css";
 import { DataServiceProvider } from "@/services/data-service-provider";
 import { Toaster } from "@/components/ui/toaster";
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: "EI-Expenses",
   description: "Simplified expense tracking with receipt scanning and Excel export",
