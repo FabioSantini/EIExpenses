@@ -134,11 +134,11 @@ export default function ExpenseReportDetailPage() {
               <Button
                 variant="outline"
                 size="default"
-                onClick={() => router.push('/')}
+                onClick={() => router.push('/reports')}
                 className="self-start sm:self-auto"
               >
                 <ArrowLeftIcon className="w-4 h-4 mr-2" />
-                Back to Dashboard
+                Back to Reports
               </Button>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{reportTitle}</h1>

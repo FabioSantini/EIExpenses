@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
 import { settingsService, type AppSettings } from "@/services/settings-service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +47,7 @@ type SettingsFormData = z.infer<typeof SettingsFormSchema>;
 export default function SettingsPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { setTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
@@ -110,6 +112,9 @@ export default function SettingsPage() {
 
       console.log("Settings updated successfully:", updatedSettings);
       setSettings(updatedSettings);
+
+      // Apply theme change immediately
+      setTheme(data.theme);
 
       toast({
         title: "Settings Saved",

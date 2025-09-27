@@ -198,3 +198,4 @@ docker-compose.override.yml
 
 # TypeScript build cache
 *.tsbuildinfo
+certificates

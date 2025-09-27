@@ -42,7 +42,7 @@ export default function UploadPage() {
     setUploadedReceipts(prev => [...prev, { receiptUrl, ocrResult }]);
   };
 
-  const handleProcessReceipts = () => {
+  const handleProcessReceipts = async () => {
     if (!selectedReportId) {
       toast({
         title: "Select a report",
@@ -61,9 +61,74 @@ export default function UploadPage() {
       return;
     }
 
-    // Navigate to expense creation with receipt data
-    const receiptData = encodeURIComponent(JSON.stringify(uploadedReceipts));
-    router.push(`/reports/${selectedReportId}/expenses/new?receipts=${receiptData}`);
+    try {
+      toast({
+        title: "Creating expense lines...",
+        description: `Processing ${uploadedReceipts.length} receipt(s)`,
+      });
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const receipt of uploadedReceipts) {
+        try {
+          const expenseLineData = {
+            reportId: selectedReportId,
+            type: receipt.ocrResult?.type || receipt.ocrResult?.expenseType || "OTHER",
+            description: receipt.ocrResult?.description || receipt.ocrResult?.vendor || "Expense from receipt",
+            amount: receipt.ocrResult?.amount || 0,
+            currency: "EUR",
+            date: receipt.ocrResult?.date || new Date().toISOString().split('T')[0],
+            receiptId: receipt.receiptUrl,
+            metadata: receipt.ocrResult ? {
+              type: "ocr_extracted",
+              data: {
+                vendor: receipt.ocrResult.vendor,
+                location: receipt.ocrResult.location,
+                confidence: receipt.ocrResult.confidence,
+              }
+            } : null,
+          };
+
+          const response = await fetch("/api/expenses", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(expenseLineData),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to create expense line");
+          }
+
+          successCount++;
+        } catch (error) {
+          console.error("Failed to create expense line:", error);
+          errorCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast({
+          title: "Success!",
+          description: `Created ${successCount} expense line(s) successfully${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
+          variant: "success",
+        });
+
+        setUploadedReceipts([]);
+        router.push(`/reports/${selectedReportId}`);
+      } else {
+        throw new Error("Failed to create any expense lines");
+      }
+    } catch (error) {
+      toast({
+        title: "Error creating expenses",
+        description: error instanceof Error ? error.message : "Failed to process receipts",
+        variant: "destructive",
+      });
+    }
   };
 
   if (!mounted) {
@@ -177,7 +242,7 @@ export default function UploadPage() {
                 disabled={!selectedReportId}
                 className="bg-primary hover:bg-primary-hover"
               >
-                Process {uploadedReceipts.length} Receipt{uploadedReceipts.length !== 1 ? 's' : ''}
+                Add {uploadedReceipts.length} Expense{uploadedReceipts.length !== 1 ? 's' : ''} to Report
                 <ArrowRightIcon className="w-4 h-4 ml-2" />
               </Button>
             </div>

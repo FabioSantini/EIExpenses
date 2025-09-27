@@ -97,46 +97,22 @@ export default function SignInPage() {
           Sign in with your Microsoft account to manage your expenses
         </p>
 
-        <div className="space-y-3">
-          <Button
-            onClick={handleSignIn}
-            disabled={isLoading}
-            className="w-full bg-primary hover:bg-primary-hover"
-            size="lg"
-          >
-            {isLoading ? (
-              "Signing in..."
-            ) : (
-              <>
-                <UserIcon className="w-5 h-5 mr-2" />
-                Sign in with Microsoft
-                <ArrowRightIcon className="w-5 h-5 ml-2" />
-              </>
-            )}
-          </Button>
-
-          {/* Debug button for testing standard flow */}
-          <Button
-            onClick={async () => {
-              console.log("🧪 Testing standard signIn flow");
-              const result = await signIn("azure-ad", {
-                callbackUrl: "/reports",
-                redirect: false,
-                prompt: "none", // Test silent authentication
-              });
-              console.log("🧪 Standard signIn result:", result);
-              if (result?.url) {
-                window.location.href = result.url;
-              }
-            }}
-            variant="outline"
-            disabled={isLoading}
-            className="w-full"
-            size="sm"
-          >
-            🧪 Debug: Standard Flow
-          </Button>
-        </div>
+        <Button
+          onClick={handleSignIn}
+          disabled={isLoading}
+          className="w-full bg-primary hover:bg-primary-hover"
+          size="lg"
+        >
+          {isLoading ? (
+            "Signing in..."
+          ) : (
+            <>
+              <UserIcon className="w-5 h-5 mr-2" />
+              Sign in with Microsoft
+              <ArrowRightIcon className="w-5 h-5 ml-2" />
+            </>
+          )}
+        </Button>
 
         <div className="mt-6 text-sm text-muted-foreground">
           <p>Supports Microsoft, Google, and Facebook accounts</p>

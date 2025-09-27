@@ -26,17 +26,33 @@ export interface ExtractedReceiptData {
   rawText?: string;
 }
 
-interface ReceiptUploadProps {
-  onDataExtracted: (data: ExtractedReceiptData) => void;
-  onCancel: () => void;
-  disabled?: boolean;
+export interface ReceiptUploadResult {
+  extractedData: ExtractedReceiptData;
+  receiptUrl: string;
+  fileName: string;
 }
 
-export function ReceiptUpload({ onDataExtracted, onCancel, disabled = false }: ReceiptUploadProps) {
+interface ReceiptUploadProps {
+  onReceiptConfirmed: (result: ReceiptUploadResult) => void;
+  onCancel: () => void;
+  disabled?: boolean;
+  userId?: string;
+  expenseId?: string;
+}
+
+export function ReceiptUpload({ 
+  onReceiptConfirmed, 
+  onCancel, 
+  disabled = false,
+  userId = 'demo-user', // Default for development
+  expenseId = `expense-${Date.now()}` // Generate if not provided
+}: ReceiptUploadProps) {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [result, setResult] = useState<ReceiptOCRResult | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -77,8 +93,8 @@ export function ReceiptUpload({ onDataExtracted, onCancel, disabled = false }: R
       setResult(ocrResult);
 
       if (ocrResult.success && ocrResult.data) {
-        // Auto-apply the extracted data
-        onDataExtracted(ocrResult.data);
+        // Show confirmation instead of auto-apply
+        setShowConfirmation(true);
       }
     } catch (error) {
       console.error("Receipt processing error:", error);
@@ -116,10 +132,67 @@ export function ReceiptUpload({ onDataExtracted, onCancel, disabled = false }: R
     }
   };
 
+  const handleConfirmReceipt = async () => {
+    if (!selectedFile || !result?.data) {
+      console.error('No file or result data available for confirmation');
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      console.log('📤 Uploading receipt to Azure Storage...');
+
+      // Upload to Azure Blob Storage
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+      formData.append('userId', userId);
+      formData.append('expenseId', expenseId);
+
+      const uploadResponse = await fetch('/api/receipts/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const uploadResult = await uploadResponse.json();
+
+      if (!uploadResponse.ok || !uploadResult.success) {
+        throw new Error(uploadResult.error || 'Failed to upload receipt');
+      }
+
+      console.log('✅ Receipt uploaded successfully:', uploadResult.data.blobUrl);
+
+      // Call the success callback with both data and receipt URL
+      onReceiptConfirmed({
+        extractedData: result.data,
+        receiptUrl: uploadResult.data.blobUrl,
+        fileName: selectedFile.name
+      });
+
+    } catch (error) {
+      console.error('❌ Receipt upload failed:', error);
+      setResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to upload receipt'
+      });
+      setShowConfirmation(false);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRejectReceipt = () => {
+    setShowConfirmation(false);
+    setResult(null);
+    // Keep the file selected so user can retry
+  };
+
   const handleReset = () => {
     setSelectedFile(null);
     setResult(null);
     setIsProcessing(false);
+    setIsUploading(false);
+    setShowConfirmation(false);
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
@@ -259,6 +332,21 @@ export function ReceiptUpload({ onDataExtracted, onCancel, disabled = false }: R
                 </div>
               )}
 
+              {/* Uploading status */}
+              {isUploading && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-3">
+                    <LoaderIcon className="w-5 h-5 animate-spin text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-900">Uploading Receipt...</p>
+                      <p className="text-sm text-green-700">
+                        Saving to Azure Storage and processing
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Results */}
               {result && !isProcessing && (
                 <div className="space-y-4">
@@ -343,39 +431,83 @@ export function ReceiptUpload({ onDataExtracted, onCancel, disabled = false }: R
                 </div>
               )}
 
-              {/* Action buttons */}
-              <div className="flex justify-between">
-                <div className="space-x-2">
-                  <Button
-                    onClick={handleReset}
-                    variant="outline"
-                    size="sm"
-                    disabled={isProcessing}
-                  >
-                    📸 Try Another
-                  </Button>
+              {/* Confirmation dialog */}
+              {showConfirmation && result?.success && result.data && !isUploading && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="text-center space-y-4">
+                    <div>
+                      <AlertCircleIcon className="w-12 h-12 text-blue-600 mx-auto mb-2" />
+                      <h3 className="font-semibold text-blue-900 text-lg">Confirm Receipt Data</h3>
+                      <p className="text-sm text-blue-700 mt-1">
+                        Please review the extracted data and confirm if it's correct.
+                        <br />
+                        <strong>Once confirmed, the receipt will be permanently saved.</strong>
+                      </p>
+                    </div>
 
-                  {result && !result.success && (
+                    <div className="flex justify-center space-x-3">
+                      <Button
+                        onClick={handleRejectReceipt}
+                        variant="outline"
+                        disabled={isUploading}
+                        className="flex items-center space-x-2"
+                      >
+                        <XCircleIcon className="w-4 h-4" />
+                        <span>❌ Not Correct</span>
+                      </Button>
+
+                      <Button
+                        onClick={handleConfirmReceipt}
+                        disabled={isUploading}
+                        className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
+                      >
+                        <CheckCircleIcon className="w-4 h-4" />
+                        <span>✅ Looks Good</span>
+                      </Button>
+                    </div>
+
+                    <p className="text-xs text-gray-600">
+                      If the data is not correct, click "Not Correct" to try again with a different image.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Action buttons - hidden during confirmation */}
+              {!showConfirmation && (
+                <div className="flex justify-between">
+                  <div className="space-x-2">
                     <Button
-                      onClick={handleRetry}
+                      onClick={handleReset}
                       variant="outline"
                       size="sm"
-                      disabled={isProcessing}
+                      disabled={isProcessing || isUploading}
                     >
-                      🔄 Retry
+                      📸 Try Another
                     </Button>
-                  )}
-                </div>
 
-                <Button
-                  onClick={onCancel}
-                  variant="ghost"
-                  size="sm"
-                  disabled={isProcessing}
-                >
-                  Cancel
-                </Button>
-              </div>
+                    {result && !result.success && (
+                      <Button
+                        onClick={handleRetry}
+                        variant="outline"
+                        size="sm"
+                        disabled={isProcessing || isUploading}
+                      >
+                        🔄 Retry
+                      </Button>
+                    )}
+                  </div>
+
+                  <Button
+                    onClick={onCancel}
+                    variant="ghost"
+                    size="sm"
+                    disabled={isProcessing || isUploading}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 

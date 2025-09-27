@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { GooglePlacesAutocomplete } from "@/components/google-places-autocomplete";
-import { ReceiptUpload, type ExtractedReceiptData } from "@/components/receipt-upload";
+import { ReceiptUpload, type ExtractedReceiptData, type ReceiptUploadResult } from "@/components/receipt-upload";
+import { ReceiptViewer } from "@/components/receipt-viewer";
 import { googleMapsService, GoogleMapsService } from "@/services/google-maps-service";
 import { settingsService } from "@/services/settings-service";
 import {
@@ -39,6 +40,7 @@ import {
   CalculatorIcon,
   LoaderIcon,
   SettingsIcon,
+  EyeIcon,
 } from "lucide-react";
 import type { ExpenseLine, ExpenseType } from "@/types";
 
@@ -116,6 +118,7 @@ export function ExpenseLineForm({
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
   const [distanceError, setDistanceError] = useState<string | null>(null);
   const [showReceiptUpload, setShowReceiptUpload] = useState(false);
+  const [showReceiptViewer, setShowReceiptViewer] = useState(false);
   // Initialize costPerKm from settings
   const [costPerKm, setCostPerKm] = useState(() => {
     const settings = settingsService.getSettings();
@@ -337,45 +340,50 @@ export function ExpenseLineForm({
   };
 
   // Handle receipt data extraction
-  const handleReceiptDataExtracted = (data: ExtractedReceiptData) => {
-    console.log("📄 Receipt data extracted:", data);
+  const handleReceiptConfirmed = (result: ReceiptUploadResult) => {
+    console.log("📄 Receipt confirmed and uploaded:", result);
+
+    const { extractedData, receiptUrl, fileName } = result;
 
     // Auto-fill form fields with extracted data
-    if (data.type) {
-      setValue("type", data.type as any);
+    if (extractedData.type) {
+      setValue("type", extractedData.type as any);
     }
 
-    if (data.amount) {
-      setValue("amount", data.amount);
-      setLocalAmount(data.amount);
+    if (extractedData.amount) {
+      setValue("amount", extractedData.amount);
+      setLocalAmount(extractedData.amount);
     }
 
-    if (data.date) {
-      setValue("date", data.date);
+    if (extractedData.date) {
+      setValue("date", extractedData.date);
     }
 
-    if (data.description) {
-      setValue("description", data.description);
+    if (extractedData.description) {
+      setValue("description", extractedData.description);
     }
+
+    // Store the receipt URL for the expense
+    setValue("receiptId", receiptUrl);
 
     // For specific expense types, fill metadata fields
-    if (data.type === "LUNCH" || data.type === "DINNER" || data.type === "BREAKFAST") {
-      if (data.vendor) {
-        setValue("customer", data.vendor);
+    if (extractedData.type === "LUNCH" || extractedData.type === "DINNER" || extractedData.type === "BREAKFAST") {
+      if (extractedData.vendor) {
+        setValue("customer", extractedData.vendor);
       }
-      if (data.location) {
+      if (extractedData.location) {
         // Try to extract location as customer info
-        setValue("customer", data.location);
+        setValue("customer", extractedData.location);
       }
     }
 
-    if (data.type === "HOTEL" && data.location) {
-      setValue("location", data.location);
+    if (extractedData.type === "HOTEL" && extractedData.location) {
+      setValue("location", extractedData.location);
     }
 
-    if (data.type === "FUEL") {
-      if (data.location) {
-        setValue("startLocation", data.location);
+    if (extractedData.type === "FUEL") {
+      if (extractedData.location) {
+        setValue("startLocation", extractedData.location);
       }
     }
 
@@ -384,8 +392,8 @@ export function ExpenseLineForm({
 
     // Show a toast notification
     toast({
-      title: "Receipt Processed",
-      description: `Extracted ${Object.keys(data).filter(key => data[key as keyof ExtractedReceiptData]).length} fields from receipt`,
+      title: "Receipt Uploaded",
+      description: `Receipt processed and saved: ${fileName}`,
     });
   };
 
@@ -635,7 +643,7 @@ export function ExpenseLineForm({
                   // Update the form field
                   setValue("roundtrip", e.target.checked);
 
-                  // If we have distance and cost, recalculate amount
+                  // If we have distance and cost, recalculate amount AND update displayed KM
                   if (distance > 0 && costPerKm > 0) {
                     const multiplier = e.target.checked ? 2 : 1;
                     const calculatedAmount = distance * costPerKm * multiplier;
@@ -643,6 +651,10 @@ export function ExpenseLineForm({
 
                     setValue("amount", roundedAmount);
                     setLocalAmount(roundedAmount);
+
+                    // Update the distance field to show the actual distance used in calculation
+                    const displayDistance = distance * multiplier;
+                    setValue("distance", displayDistance);
                   }
                 }}
                 className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
@@ -1078,12 +1090,28 @@ export function ExpenseLineForm({
               {/* Receipt */}
               <div className="space-y-2">
                 <Label htmlFor="receiptId">Receipt ID (Optional)</Label>
-                <Input
-                  id="receiptId"
-                  {...register("receiptId")}
-                  placeholder="Receipt file ID or URL"
-                  disabled={isSubmitting}
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="receiptId"
+                    {...register("receiptId")}
+                    placeholder="Receipt file ID or URL"
+                    disabled={isSubmitting}
+                    className="flex-1"
+                  />
+                  {watch("receiptId") && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowReceiptViewer(true)}
+                      disabled={isSubmitting}
+                      className="shrink-0"
+                    >
+                      <EyeIcon className="w-4 h-4 mr-1" />
+                      View
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Type-specific fields */}
@@ -1144,9 +1172,24 @@ export function ExpenseLineForm({
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <ReceiptUpload
-                onDataExtracted={handleReceiptDataExtracted}
+                onReceiptConfirmed={handleReceiptConfirmed}
                 onCancel={() => setShowReceiptUpload(false)}
                 disabled={isSubmitting}
+                userId="demo-user"
+                expenseId={reportId}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Receipt Viewer Modal */}
+        {showReceiptViewer && watch("receiptId") && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="max-w-full max-h-full overflow-auto">
+              <ReceiptViewer
+                receiptUrl={watch("receiptId")!}
+                fileName={`Receipt for ${watch("description") || "Expense"}`}
+                onClose={() => setShowReceiptViewer(false)}
               />
             </div>
           </div>

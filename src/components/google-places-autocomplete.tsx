@@ -76,7 +76,7 @@ export function GooglePlacesAutocomplete({
               {
                 types: ["address"],
                 fields: ["formatted_address", "geometry", "place_id", "name"],
-                componentRestrictions: { country: "it" }, // Restrict to Italy for better results
+                // No country restriction - allow addresses from all countries
               }
             );
             console.log("✅ Google Places Autocomplete initialized successfully");
