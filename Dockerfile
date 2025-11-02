@@ -40,24 +40,17 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copy other necessary files
-COPY startup.sh ./
-COPY web.config ./
-
-# Make startup script executable
-RUN chmod +x startup.sh
-
 # Create a non-root user to run the application
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nextjs -u 1001
 USER nextjs
 
-# Expose port
+# Expose HTTP port
 EXPOSE 3000
 
 # Environment variables will be injected at runtime
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Start the application with Node (standalone mode)
+# Start the application using Next.js standalone server
 CMD ["node", "server.js"]

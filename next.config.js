@@ -10,7 +10,8 @@ const withPWA = require('next-pwa')({
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  output: 'standalone',
+  // Only use standalone output for production builds
+  ...(process.env.NODE_ENV === 'production' && { output: 'standalone' }),
   images: {
     remotePatterns: [
       {
