@@ -68,7 +68,7 @@ const expenseLineSchema = z.object({
   }),
   description: z.string().min(1, "Description is required").max(200, "Description is too long"),
   amount: z.number().min(0.01, "Amount must be greater than 0"),
-  currency: z.string().default("EUR"),
+  currency: z.string().min(1, "Currency is required"),
   receiptId: z.string().optional(),
 
   // All metadata fields are optional with no validation - they'll be processed based on expense type
@@ -133,6 +133,9 @@ export function ExpenseLineForm({
 
   const isEditing = !!expenseId && !!initialData;
 
+  // Get default currency from settings
+  const defaultCurrency = settingsService.getSettings().currency.default;
+
   // Parse initial metadata - only set values that actually exist
   const getInitialMetadata = () => {
     if (!initialData?.metadata || typeof initialData.metadata !== 'object') {
@@ -184,7 +187,7 @@ export function ExpenseLineForm({
       type: initialData?.type || "OTHER",
       description: initialData?.description || "",
       amount: initialData?.amount || 0,
-      currency: initialData?.currency || "EUR",
+      currency: initialData?.currency || defaultCurrency,
       receiptId: initialData?.receiptId || "",
       ...getInitialMetadata(),
     },
@@ -1069,7 +1072,7 @@ export function ExpenseLineForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="currency">Currency</Label>
+                  <Label htmlFor="currency">Currency *</Label>
                   <Select
                     value={watch("currency")}
                     onValueChange={(value) => setValue("currency", value)}
@@ -1082,8 +1085,12 @@ export function ExpenseLineForm({
                       <SelectItem value="EUR">EUR</SelectItem>
                       <SelectItem value="USD">USD</SelectItem>
                       <SelectItem value="GBP">GBP</SelectItem>
+                      <SelectItem value="CHF">CHF</SelectItem>
                     </SelectContent>
                   </Select>
+                  {errors.currency && (
+                    <p className="text-sm text-red-600">{errors.currency.message}</p>
+                  )}
                 </div>
               </div>
 

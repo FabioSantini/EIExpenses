@@ -342,28 +342,6 @@ export default function ExpenseReportDetailPage() {
             </div>
           )}
         </div>
-
-        {/* Test Data Info */}
-        {expenses.length > 0 && (
-          <div className="mt-12 p-6 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">ℹ</span>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-lg font-medium text-blue-900 mb-1">
-                  Expense Line Management Active
-                </h3>
-                <p className="text-blue-700">
-                  This interface shows individual expense items within the report. You can view, edit, and manage 
-                  each expense entry with details like type, amount, date, and receipt attachments.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

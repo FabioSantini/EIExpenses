@@ -35,6 +35,7 @@ export default function ExportPage() {
   });
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [includeReceipts, setIncludeReceipts] = useState(false);
+  const [targetCurrency, setTargetCurrency] = useState<string>("EUR");
 
   const { reports, isLoading, error } = useExpenseReports();
   const { exportToExcel, exportWithReceipts, isExporting } = useExport();
@@ -203,8 +204,29 @@ export default function ExportPage() {
               </div>
 
               {/* Export Options */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label>Export Options</Label>
+
+                {/* Target Currency Selection */}
+                <div className="space-y-2">
+                  <Label htmlFor="target-currency" className="text-sm">Target Currency</Label>
+                  <Select value={targetCurrency} onValueChange={setTargetCurrency}>
+                    <SelectTrigger id="target-currency">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="EUR">EUR (€)</SelectItem>
+                      <SelectItem value="USD">USD ($)</SelectItem>
+                      <SelectItem value="GBP">GBP (£)</SelectItem>
+                      <SelectItem value="CHF">CHF (Fr)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    All expenses will be converted to this currency using exchange rates from settings
+                  </p>
+                </div>
+
+                {/* Include Receipts */}
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="include-receipts"

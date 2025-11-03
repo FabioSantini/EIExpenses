@@ -9,7 +9,17 @@ const AppSettingsSchema = z.object({
   }),
   currency: z.object({
     default: z.string().length(3).default("EUR"),
-    allowedCurrencies: z.array(z.string().length(3)).default(["EUR", "USD", "GBP"]),
+    allowedCurrencies: z.array(z.string().length(3)).default(["EUR", "USD", "GBP", "CHF"]),
+  }),
+  exchangeRates: z.object({
+    base: z.literal("EUR").default("EUR"),
+    rates: z.record(z.string(), z.number()).default({
+      EUR: 1,
+      USD: 1.10,
+      GBP: 0.85,
+      CHF: 0.95,
+    }),
+    lastUpdated: z.string().optional(),
   }),
   ui: z.object({
     theme: z.enum(["light", "dark", "system"]).default("light"),
@@ -32,7 +42,17 @@ const defaultSettings: AppSettings = {
   },
   currency: {
     default: "EUR",
-    allowedCurrencies: ["EUR", "USD", "GBP"],
+    allowedCurrencies: ["EUR", "USD", "GBP", "CHF"],
+  },
+  exchangeRates: {
+    base: "EUR",
+    rates: {
+      EUR: 1,
+      USD: 1.10,
+      GBP: 0.85,
+      CHF: 0.95,
+    },
+    lastUpdated: undefined,
   },
   ui: {
     theme: "light",
@@ -62,13 +82,17 @@ class SettingsService {
       }
 
       const parsed = JSON.parse(stored);
-      // Ensure authentication property exists with defaults
+      // Ensure authentication and exchangeRates properties exist with defaults
       const withDefaults = {
         ...defaultSettings,
         ...parsed,
         authentication: {
           ...defaultSettings.authentication,
           ...parsed.authentication,
+        },
+        exchangeRates: {
+          ...defaultSettings.exchangeRates,
+          ...parsed.exchangeRates,
         },
       };
       return AppSettingsSchema.parse(withDefaults);
@@ -92,6 +116,7 @@ class SettingsService {
         ...settings,
         fuel: { ...current.fuel, ...settings.fuel },
         currency: { ...current.currency, ...settings.currency },
+        exchangeRates: { ...current.exchangeRates, ...settings.exchangeRates },
         ui: { ...current.ui, ...settings.ui },
         authentication: { ...current.authentication, ...settings.authentication },
       };

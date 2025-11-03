@@ -8,6 +8,7 @@ import { z } from "zod";
 import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
 import { settingsService, type AppSettings } from "@/services/settings-service";
+import { exchangeRateService } from "@/services/exchange-rate-service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,8 @@ import {
   DownloadIcon,
   UploadIcon,
   ShieldIcon,
+  DollarSignIcon,
+  TrendingUpIcon,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
@@ -50,6 +53,12 @@ export default function SettingsPage() {
   const { setTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [isUpdatingRates, setIsUpdatingRates] = useState(false);
+  const [exchangeRates, setExchangeRates] = useState({
+    USD: 0,
+    GBP: 0,
+    CHF: 0,
+  });
 
   const {
     register,
@@ -68,6 +77,13 @@ export default function SettingsPage() {
     const currentSettings = settingsService.getSettings();
     console.log("📋 Current settings loaded:", currentSettings);
     setSettings(currentSettings);
+
+    // Load exchange rates
+    setExchangeRates({
+      USD: currentSettings.exchangeRates.rates.USD,
+      GBP: currentSettings.exchangeRates.rates.GBP,
+      CHF: currentSettings.exchangeRates.rates.CHF,
+    });
 
     const formValues = {
       fuelCostPerKm: currentSettings.fuel.costPerKm,
@@ -98,7 +114,15 @@ export default function SettingsPage() {
         },
         currency: {
           default: data.defaultCurrency,
-          allowedCurrencies: settings?.currency.allowedCurrencies ?? ["EUR", "USD", "GBP"],
+          allowedCurrencies: settings?.currency.allowedCurrencies ?? ["EUR", "USD", "GBP", "CHF"],
+        },
+        exchangeRates: {
+          base: "EUR",
+          rates: {
+            EUR: 1,
+            ...exchangeRates,
+          },
+          lastUpdated: settings?.exchangeRates.lastUpdated,
         },
         ui: {
           theme: data.theme,
@@ -220,6 +244,60 @@ export default function SettingsPage() {
     reader.readAsText(file);
   };
 
+  const handleUpdateRatesFromAPI = async () => {
+    setIsUpdatingRates(true);
+    try {
+      const { rates, lastUpdated } = await exchangeRateService.fetchLatestRates();
+
+      // Update local state
+      setExchangeRates({
+        USD: rates.USD,
+        GBP: rates.GBP,
+        CHF: rates.CHF,
+      });
+
+      // Update settings with new rates
+      const updatedSettings = settingsService.updateSettings({
+        exchangeRates: {
+          base: "EUR",
+          rates: {
+            EUR: 1,
+            USD: rates.USD,
+            GBP: rates.GBP,
+            CHF: rates.CHF,
+          },
+          lastUpdated,
+        },
+      });
+
+      setSettings(updatedSettings);
+
+      toast({
+        title: "Exchange Rates Updated",
+        description: `Rates updated successfully from API. Last updated: ${new Date(lastUpdated).toLocaleString()}`,
+      });
+    } catch (error) {
+      console.error("Error updating exchange rates:", error);
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Failed to fetch exchange rates from API.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingRates(false);
+    }
+  };
+
+  const handleExchangeRateChange = (currency: string, value: string) => {
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue > 0) {
+      setExchangeRates(prev => ({
+        ...prev,
+        [currency]: numValue,
+      }));
+    }
+  };
+
   if (!settings) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -332,6 +410,7 @@ export default function SettingsPage() {
                       <SelectItem value="EUR">EUR (€)</SelectItem>
                       <SelectItem value="USD">USD ($)</SelectItem>
                       <SelectItem value="GBP">GBP (£)</SelectItem>
+                      <SelectItem value="CHF">CHF (Fr)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -353,6 +432,124 @@ export default function SettingsPage() {
                   </Select>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Exchange Rates Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <DollarSignIcon className="w-5 h-5 mr-2" />
+                  Exchange Rates (EUR Base)
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleUpdateRatesFromAPI}
+                  disabled={isUpdatingRates || isLoading}
+                >
+                  <TrendingUpIcon className="w-4 h-4 mr-2" />
+                  {isUpdatingRates ? "Updating..." : "Update from API"}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-slate-600 mb-4">
+                All exchange rates are based on EUR (€1 = X currency).
+                Update manually or fetch latest rates from the API.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="rate-usd">USD / EUR</Label>
+                  <Input
+                    id="rate-usd"
+                    type="number"
+                    step="0.0001"
+                    min="0.0001"
+                    value={exchangeRates.USD}
+                    onChange={(e) => handleExchangeRateChange("USD", e.target.value)}
+                    disabled={isLoading}
+                    placeholder="1.10"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    €1 = ${exchangeRates.USD.toFixed(4)}
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="rate-gbp">GBP / EUR</Label>
+                  <Input
+                    id="rate-gbp"
+                    type="number"
+                    step="0.0001"
+                    min="0.0001"
+                    value={exchangeRates.GBP}
+                    onChange={(e) => handleExchangeRateChange("GBP", e.target.value)}
+                    disabled={isLoading}
+                    placeholder="0.85"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    €1 = £{exchangeRates.GBP.toFixed(4)}
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="rate-chf">CHF / EUR</Label>
+                  <Input
+                    id="rate-chf"
+                    type="number"
+                    step="0.0001"
+                    min="0.0001"
+                    value={exchangeRates.CHF}
+                    onChange={(e) => handleExchangeRateChange("CHF", e.target.value)}
+                    disabled={isLoading}
+                    placeholder="0.95"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    €1 = Fr{exchangeRates.CHF.toFixed(4)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Last Updated Info */}
+              {settings.exchangeRates.lastUpdated && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                  <h4 className="font-medium text-green-900 mb-1">Last Updated</h4>
+                  <p className="text-sm text-green-700">
+                    {new Date(settings.exchangeRates.lastUpdated).toLocaleString()}
+                    <span className="ml-2 text-green-600">
+                      ({exchangeRateService.getTimeSinceUpdate(settings.exchangeRates.lastUpdated)})
+                    </span>
+                  </p>
+                </div>
+              )}
+
+              {!settings.exchangeRates.lastUpdated && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+                  <h4 className="font-medium text-amber-900 mb-1">No API Updates Yet</h4>
+                  <p className="text-sm text-amber-700">
+                    Click "Update from API" to fetch the latest exchange rates.
+                  </p>
+                </div>
+              )}
+
+              {/* Conversion Examples */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <h4 className="font-medium text-blue-900 mb-2">Example Conversions</h4>
+                <div className="text-sm text-blue-700 space-y-1">
+                  <p>€100 = ${(100 * exchangeRates.USD).toFixed(2)} USD</p>
+                  <p>€100 = £{(100 * exchangeRates.GBP).toFixed(2)} GBP</p>
+                  <p>€100 = Fr{(100 * exchangeRates.CHF).toFixed(2)} CHF</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-500">
+                <strong>Note:</strong> Exchange rates are used for multi-currency expense reports.
+                Cross-currency conversions (e.g., USD → CHF) are calculated via EUR: USD → EUR → CHF.
+              </p>
             </CardContent>
           </Card>
 
