@@ -31,7 +31,20 @@ echo ""
 echo "📦 Step 1/5: Building Docker image..."
 echo -e "${YELLOW}This will take 5-10 minutes...${NC}"
 
-docker build -t $IMAGE_NAME:$VERSION -t $IMAGE_NAME:latest .
+# Get Google Maps API key from .env.local if not set
+if [ -z "$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY" ]; then
+  if [ -f .env.local ]; then
+    export NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$(grep NEXT_PUBLIC_GOOGLE_MAPS_API_KEY .env.local | cut -d '=' -f2)
+    echo "📍 Using Google Maps API key from .env.local"
+  fi
+fi
+
+docker build \
+  --build-arg NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY" \
+  --build-arg NEXT_PUBLIC_APP_URL="https://$APP_NAME.azurewebsites.net" \
+  -t $IMAGE_NAME:$VERSION \
+  -t $IMAGE_NAME:latest \
+  .
 
 if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Docker build failed!${NC}"

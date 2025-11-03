@@ -64,11 +64,9 @@ class AzureStorageServerService {
 
       // Get container client
       const containerClient = this.blobServiceClient.getContainerClient(this.containerName);
-      
-      // Ensure container exists
-      await containerClient.createIfNotExists({
-        access: 'blob' // Allow public read access to individual blobs
-      });
+
+      // Ensure container exists (no access parameter = private by default)
+      await containerClient.createIfNotExists();
 
       // Get block blob client
       const blockBlobClient = containerClient.getBlockBlobClient(blobName);
@@ -83,13 +81,14 @@ class AzureStorageServerService {
         uploadedAt: new Date().toISOString()
       };
 
-      // Convert file to array buffer
+      // Convert file to Buffer for Node.js environment
       const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
 
       // Upload the file with metadata
       const uploadResponse = await blockBlobClient.upload(
-        arrayBuffer, 
-        arrayBuffer.byteLength,
+        buffer,
+        buffer.length,
         {
           blobHTTPHeaders: {
             blobContentType: file.type,

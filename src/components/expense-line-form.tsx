@@ -1142,30 +1142,6 @@ export function ExpenseLineForm({
           </CardContent>
         </Card>
 
-        {/* Help Text */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="font-medium text-blue-800 mb-2">Tips for {watchedType} expenses:</h3>
-          <div className="text-sm text-blue-700">
-            {watchedType === "FUEL" && (
-              <p>Add start/end locations for automatic distance calculation and route tracking.</p>
-            )}
-            {(watchedType === "LUNCH" || watchedType === "DINNER" || watchedType === "BREAKFAST") && (
-              <p>Include customer and colleague information for business meal documentation.</p>
-            )}
-            {watchedType === "HOTEL" && (
-              <p>Specify location and number of nights for accommodation tracking.</p>
-            )}
-            {watchedType === "PARKING" && (
-              <p>Include duration and zone information for parking expense details.</p>
-            )}
-            {(watchedType === "TRAIN" || watchedType === "TELEPASS") && (
-              <p>Add route and class information for travel expense tracking.</p>
-            )}
-            {watchedType === "OTHER" && (
-              <p>Use clear, descriptive names for miscellaneous business expenses.</p>
-            )}
-          </div>
-        </div>
 
         {/* Receipt Upload Modal */}
         {showReceiptUpload && (

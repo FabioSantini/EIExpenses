@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+// Force this route to be dynamic (not statically generated)
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/suggestions/customers
  * Get customer name suggestions for autocomplete

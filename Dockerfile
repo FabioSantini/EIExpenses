@@ -4,6 +4,14 @@ FROM node:18-alpine AS builder
 # Set working directory
 WORKDIR /app
 
+# Accept build arguments for Next.js public environment variables
+ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+ARG NEXT_PUBLIC_APP_URL
+
+# Set as environment variables for Next.js build
+ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+
 # Copy package files
 COPY package*.json ./
 COPY prisma ./prisma/
@@ -17,7 +25,7 @@ COPY . .
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Build Next.js application
+# Build Next.js application with public env vars baked in
 RUN npm run build
 
 # Production stage

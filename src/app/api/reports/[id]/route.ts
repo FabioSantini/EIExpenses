@@ -4,6 +4,9 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import type { ExpenseReport } from '@/types';
 
+// Force this route to be dynamic (not statically generated)
+export const dynamic = 'force-dynamic';
+
 async function getUserEmail(request: NextRequest): Promise<string> {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {

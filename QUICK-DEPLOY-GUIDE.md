@@ -44,6 +44,7 @@ Guida rapida per deployare modifiche su Azure.
 - ✅ Modifiche Prisma schema
 - ✅ Modifiche Dockerfile
 - ✅ Update di librerie
+- ✅ **Modifiche a NEXT_PUBLIC_* environment variables** (Google Maps API key, etc.)
 
 ---
 
@@ -55,6 +56,10 @@ Hai modificato package.json?
 └─ NO → deploy-code.sh ⚡
 
 Hai modificato Prisma schema?
+├─ SI → deploy-full.sh
+└─ NO → deploy-code.sh ⚡
+
+Hai cambiato NEXT_PUBLIC_* env vars (Google Maps API)?
 ├─ SI → deploy-full.sh
 └─ NO → deploy-code.sh ⚡
 

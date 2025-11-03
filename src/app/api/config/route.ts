@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force this route to be dynamic (not statically generated)
+// CRITICAL: Must read environment variables at runtime, not build time
+export const dynamic = 'force-dynamic';
+
 export interface AppConfig {
   // Data service configuration
   dataService: {

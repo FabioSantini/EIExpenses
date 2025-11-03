@@ -1,6 +1,4 @@
 import type { IDataService } from "./data-service";
-import { MockDataService } from "./mock-data-service";
-import { AzureSqlDataService } from "./azure-sql-data-service";
 import type { AppConfig } from "@/app/api/config/route";
 
 export type DataServiceEnvironment = 'mock' | 'azure';
@@ -14,6 +12,9 @@ interface DataServiceOptions {
  * Factory for creating data service instances based on centralized server configuration
  * Supports mock (local development) and azure (production) environments
  * Configuration is fetched securely from server-side /api/config endpoint
+ *
+ * IMPORTANT: Uses dynamic imports to avoid bundling browser-only code (MockDataService)
+ * for server-side rendering, which would cause "File is not defined" errors.
  */
 export class DataServiceFactory {
   private static instance: IDataService | null = null;
@@ -45,12 +46,16 @@ export class DataServiceFactory {
 
     switch (environment) {
       case 'mock':
-        console.log(`🔷 DataServiceFactory: Creating MockDataService`);
+        console.log(`🔷 DataServiceFactory: Creating MockDataService (dynamic import)`);
+        // Dynamic import to avoid bundling browser-only code for SSR
+        const { MockDataService } = await import("./mock-data-service");
         this.instance = new MockDataService(userEmail || undefined);
         break;
 
       case 'azure':
-        console.log(`🔷 DataServiceFactory: Creating AzureSqlDataService`);
+        console.log(`🔷 DataServiceFactory: Creating AzureSqlDataService (dynamic import)`);
+        // Dynamic import for consistency and code splitting
+        const { AzureSqlDataService } = await import("./azure-sql-data-service");
         this.instance = new AzureSqlDataService();
         if (userEmail && this.instance.setUserContext) {
           this.instance.setUserContext(userEmail);
