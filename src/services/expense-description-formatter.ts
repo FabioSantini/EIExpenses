@@ -52,6 +52,11 @@ export class ExpenseDescriptionFormatter {
       parsedMetadata = metadata;
     }
 
+    // Handle typed metadata format: { type: 'FUEL', data: { ... } }
+    if (parsedMetadata && (parsedMetadata as any).type && (parsedMetadata as any).data) {
+      parsedMetadata = (parsedMetadata as any).data;
+    }
+
     // Normalize expense type (handle both English and Italian)
     const normalizedType = this.normalizeExpenseType(expenseType);
 
@@ -114,20 +119,26 @@ export class ExpenseDescriptionFormatter {
 
     const parts: string[] = [description];
 
-    if (metadata.startLocation) {
-      parts.push(metadata.startLocation);
+    // Support both camelCase and space-separated keys
+    const startLocation = metadata.startLocation || (metadata as any)['start location'];
+    const endLocation = metadata.endLocation || (metadata as any)['end location'];
+    const vehicleType = metadata.vehicleType || (metadata as any)['vehicle type'];
+    const isRoundTrip = metadata.isRoundTrip !== undefined ? metadata.isRoundTrip : (metadata as any)['roundtrip'];
+
+    if (startLocation) {
+      parts.push(startLocation);
     }
 
-    if (metadata.endLocation) {
-      parts.push(metadata.endLocation);
+    if (endLocation) {
+      parts.push(endLocation);
     }
 
-    if (metadata.vehicleType) {
-      parts.push(metadata.vehicleType);
+    if (vehicleType) {
+      parts.push(vehicleType);
     }
 
-    if (metadata.isRoundTrip !== undefined) {
-      parts.push(metadata.isRoundTrip ? 'roundtrip' : 'one way');
+    if (isRoundTrip !== undefined) {
+      parts.push(isRoundTrip ? 'roundtrip' : 'one way');
     }
 
     return parts.join(' - ');
@@ -140,9 +151,14 @@ export class ExpenseDescriptionFormatter {
     description: string,
     metadata: ExpenseMetadata | null
   ): string {
-    if (!metadata || !metadata.duration) return description;
+    if (!metadata) return description;
 
-    return `${description} - ${metadata.duration}`;
+    // Support both camelCase and space-separated keys
+    const duration = metadata.duration || (metadata as any)['parking duration'] || (metadata as any)['duration'];
+
+    if (!duration) return description;
+
+    return `${description} - ${duration}`;
   }
 
   /**
@@ -156,12 +172,16 @@ export class ExpenseDescriptionFormatter {
 
     const parts: string[] = [description];
 
-    if (metadata.customer) {
-      parts.push(metadata.customer);
+    // Support both camelCase and space-separated keys
+    const customer = metadata.customer || (metadata as any)['customer name'] || (metadata as any)['customer'];
+    const colleagues = metadata.colleagues || (metadata as any)['colleague names'] || (metadata as any)['colleagues'];
+
+    if (customer) {
+      parts.push(customer);
     }
 
-    if (metadata.colleagues && Array.isArray(metadata.colleagues) && metadata.colleagues.length > 0) {
-      parts.push(metadata.colleagues.join(', '));
+    if (colleagues && Array.isArray(colleagues) && colleagues.length > 0) {
+      parts.push(colleagues.join(', '));
     }
 
     return parts.join(' - ');
@@ -178,12 +198,16 @@ export class ExpenseDescriptionFormatter {
 
     const parts: string[] = [description];
 
-    if (metadata.location) {
-      parts.push(metadata.location);
+    // Support both camelCase and space-separated keys
+    const location = metadata.location || (metadata as any)['hotel location'] || (metadata as any)['location'];
+    const nights = metadata.nights !== undefined ? metadata.nights : (metadata as any)['number of nights'] || (metadata as any)['nights'];
+
+    if (location) {
+      parts.push(location);
     }
 
-    if (metadata.nights !== undefined) {
-      parts.push(metadata.nights.toString());
+    if (nights !== undefined) {
+      parts.push(nights.toString());
     }
 
     return parts.join(' - ');
@@ -200,12 +224,16 @@ export class ExpenseDescriptionFormatter {
 
     const parts: string[] = [description];
 
-    if (metadata.departure) {
-      parts.push(metadata.departure);
+    // Support both camelCase and space-separated keys
+    const departure = metadata.departure || (metadata as any)['departure station'] || (metadata as any)['departure'];
+    const arrival = metadata.arrival || (metadata as any)['arrival station'] || (metadata as any)['arrival'];
+
+    if (departure) {
+      parts.push(departure);
     }
 
-    if (metadata.arrival) {
-      parts.push(metadata.arrival);
+    if (arrival) {
+      parts.push(arrival);
     }
 
     return parts.join(' - ');
@@ -237,6 +265,14 @@ export class ExpenseDescriptionFormatter {
       parsedMetadata = metadata;
     }
 
-    return parsedMetadata?.distance ?? null;
+    // Handle typed metadata format: { type: 'FUEL', data: { ... } }
+    if (parsedMetadata && (parsedMetadata as any).type && (parsedMetadata as any).data) {
+      parsedMetadata = (parsedMetadata as any).data;
+    }
+
+    // Support both camelCase and space-separated keys
+    const distance = parsedMetadata?.distance;
+
+    return distance ?? null;
   }
 }

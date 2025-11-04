@@ -366,7 +366,11 @@ export function useExport() {
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const exportToExcel = async (reportId: string, settings?: any) => {
+  const exportToExcel = async (
+    reportIds: string | string[],
+    targetCurrency: string = "EUR",
+    settings?: any
+  ) => {
     if (!dataService) {
       throw new Error("Data service not available");
     }
@@ -374,18 +378,28 @@ export function useExport() {
     try {
       setIsExporting(true);
       setError(null);
-      const blob = await dataService.exportToExcel(reportId, settings);
-      
+
+      // Convert single reportId to array for consistency
+      const reportIdsArray = Array.isArray(reportIds) ? reportIds : [reportIds];
+
+      const blob = await dataService.exportToExcel(reportIdsArray, targetCurrency, settings);
+
+      // Generate filename with currency and date
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const includeReceipts = settings?.includeReceipts || false;
+      const extension = includeReceipts ? 'zip' : 'xlsx';
+      const filename = `Expenses_${targetCurrency}_${today}.${extension}`;
+
       // Download the file
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `expenses-${reportId}.csv`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
+
       return blob;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to export to Excel");

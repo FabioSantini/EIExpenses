@@ -86,7 +86,7 @@ export interface IDataService {
   updateColleagueUsage(name: string): Promise<void>;
 
   // Export Operations
-  exportToExcel(reportId: string, settings?: ExportSettings): Promise<Blob>;
+  exportToExcel(reportIds: string[], targetCurrency: string, settings?: ExportSettings): Promise<Blob>;
   exportToExcelWithReceipts(reportId: string, settings?: ExportSettings): Promise<Blob>;
 
   // System Operations

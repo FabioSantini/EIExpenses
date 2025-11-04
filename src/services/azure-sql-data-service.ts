@@ -1,5 +1,6 @@
 import { IDataService, CreateExpenseReportInput, CreateExpenseLineInput } from './data-service';
 import type { ExpenseReport, ExpenseLine, ExpenseType, User, OCRResult, ExportSettings } from '@/types';
+import { MultiCurrencyExcelExport } from './multi-currency-excel-export';
 
 export class AzureSqlDataService implements IDataService {
   private userEmail: string = 'dotnetcsharp@hotmail.com';
@@ -219,11 +220,46 @@ export class AzureSqlDataService implements IDataService {
     // TODO: Implement API call to /api/suggestions/colleagues/usage
   }
 
-  // Placeholder implementations for export
-  async exportToExcel(reportId: string, settings?: ExportSettings): Promise<Blob> {
-    // TODO: Implement Excel export via API
-    console.log('🗄️ AzureSqlDataService.exportToExcel: TODO - implement API call');
-    return new Blob();
+  // Multi-currency Excel export
+  async exportToExcel(reportIds: string[], targetCurrency: string, settings?: ExportSettings): Promise<Blob> {
+    console.log('🗄️ AzureSqlDataService.exportToExcel: Fetching expenses for reports', reportIds);
+    console.log('📋 Settings:', settings);
+
+    try {
+      // Fetch all expenses for all reports
+      const expensesByReport: Record<string, ExpenseLine[]> = {};
+
+      for (const reportId of reportIds) {
+        const expenses = await this.getExpenseLines(reportId);
+        expensesByReport[reportId] = expenses;
+      }
+
+      // Check if receipts should be included
+      const includeReceipts = settings?.includeReceipts || false;
+
+      if (includeReceipts) {
+        console.log('📦 Generating ZIP with Excel and receipts');
+        const blob = await MultiCurrencyExcelExport.generateZipWithReceipts(
+          reportIds,
+          targetCurrency,
+          expensesByReport
+        );
+        console.log('✅ AzureSqlDataService.exportToExcel: Successfully generated ZIP file');
+        return blob;
+      } else {
+        console.log('📄 Generating Excel file only');
+        const blob = await MultiCurrencyExcelExport.generateExcel(
+          reportIds,
+          targetCurrency,
+          expensesByReport
+        );
+        console.log('✅ AzureSqlDataService.exportToExcel: Successfully generated Excel file');
+        return blob;
+      }
+    } catch (error) {
+      console.error('❌ AzureSqlDataService.exportToExcel: Error', error);
+      throw error;
+    }
   }
 
   async exportToExcelWithReceipts(reportId: string, settings?: ExportSettings): Promise<Blob> {

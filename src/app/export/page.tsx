@@ -103,27 +103,15 @@ export default function ExportPage() {
     }
 
     try {
-      if (selectedReports.length === 1) {
-        // Single report export
-        if (includeReceipts) {
-          await exportWithReceipts(selectedReports[0]);
-        } else {
-          await exportToExcel(selectedReports[0]);
-        }
-      } else {
-        // Multiple reports - for now, export individually
-        for (const reportId of selectedReports) {
-          if (includeReceipts) {
-            await exportWithReceipts(reportId);
-          } else {
-            await exportToExcel(reportId);
-          }
-        }
-      }
+      // Export all selected reports combined into one Excel file (or ZIP with receipts)
+      await exportToExcel(selectedReports, targetCurrency, {
+        includeReceipts: includeReceipts
+      });
 
+      const fileType = includeReceipts ? "ZIP file with receipts" : "Excel file";
       toast({
         title: "Export successful",
-        description: `${selectedReports.length} report(s) exported successfully.`,
+        description: `${selectedReports.length} report(s) exported successfully to ${targetCurrency} as ${fileType}.`,
         variant: "success",
       });
     } catch (error) {
