@@ -646,7 +646,7 @@ export function ExpenseLineForm({
                   // Update the form field
                   setValue("roundtrip", e.target.checked);
 
-                  // If we have distance and cost, recalculate amount AND update displayed KM
+                  // If we have distance and cost, recalculate amount only
                   if (distance > 0 && costPerKm > 0) {
                     const multiplier = e.target.checked ? 2 : 1;
                     const calculatedAmount = distance * costPerKm * multiplier;
@@ -654,10 +654,6 @@ export function ExpenseLineForm({
 
                     setValue("amount", roundedAmount);
                     setLocalAmount(roundedAmount);
-
-                    // Update the distance field to show the actual distance used in calculation
-                    const displayDistance = distance * multiplier;
-                    setValue("distance", displayDistance);
                   }
                 }}
                 className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
@@ -709,9 +705,9 @@ export function ExpenseLineForm({
                       <SettingsIcon className="w-3 h-3 inline" />
                     </button>
                   </p>
-                  <p>Roundtrip: {roundtrip ? "Yes" : "No"}</p>
+                  <p>Roundtrip: {roundtrip ? "Yes (distance × 2)" : "No"}</p>
                   <p className="font-medium mt-2">
-                    Calculation: {distance || 0} km × €{costPerKm.toFixed(2)} {roundtrip ? "× 2" : ""} = €
+                    Calculation: {distance || 0} km × €{costPerKm.toFixed(2)}{roundtrip ? " × 2" : ""} = €
                     {((distance || 0) * costPerKm * (roundtrip ? 2 : 1)).toFixed(2)}
                   </p>
                   <div className="flex gap-2 mt-2">
