@@ -195,6 +195,7 @@ az webapp config appsettings list --name EIExpenses-Container --resource-group r
 
 | Versione | Data | Note |
 |----------|------|------|
+| v2.4 | 2025-11-23 | Voicebot integration con token su Blob Storage |
 | v2.3 | 2025-11-19 | Fix roundtrip FUEL + Google Maps build-time |
 | v2.2 | 2025-11-04 | Multi-currency export con ricevute |
 | v2.1 | 2025-11-04 | Miglioramenti export |
@@ -202,4 +203,4 @@ az webapp config appsettings list --name EIExpenses-Container --resource-group r
 
 ---
 
-*Ultimo aggiornamento: 2025-11-19*
+*Ultimo aggiornamento: 2025-11-23*

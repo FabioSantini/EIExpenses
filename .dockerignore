@@ -16,6 +16,9 @@
 
 # Dependencies (will be installed fresh in Docker)
 node_modules
+**/node_modules
+.pnp
+.pnp.js
 
 # Build outputs (will be built fresh in Docker)
 .next
@@ -52,6 +55,9 @@ deployments
 azure-test-*
 *.tar.gz
 *.zip
+azure-logs*
+container-logs*
+receipt/
 
 # Media files not needed in runtime
 *.mp4

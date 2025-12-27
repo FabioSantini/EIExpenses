@@ -16,7 +16,7 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    // Protect all routes except auth pages and API auth
-    "/((?!api/auth|auth|_next/static|_next/image|favicon.ico|certificates).*)",
+    // Protect all routes except auth pages, API auth, and voice API (uses token auth)
+    "/((?!api/auth|api/voice|auth|_next/static|_next/image|favicon.ico|certificates).*)",
   ],
 };

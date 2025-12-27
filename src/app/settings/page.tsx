@@ -31,6 +31,9 @@ import {
   ShieldIcon,
   DollarSignIcon,
   TrendingUpIcon,
+  MicIcon,
+  CopyIcon,
+  XCircleIcon,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
@@ -60,6 +63,12 @@ export default function SettingsPage() {
     CHF: 0,
   });
 
+  // Voice token state
+  const [voiceToken, setVoiceToken] = useState<string | null>(null);
+  const [voiceTokenExpiry, setVoiceTokenExpiry] = useState<Date | null>(null);
+  const [voiceTokenRemaining, setVoiceTokenRemaining] = useState<number>(0);
+  const [isGeneratingToken, setIsGeneratingToken] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -70,6 +79,43 @@ export default function SettingsPage() {
   } = useForm<SettingsFormData>({
     resolver: zodResolver(SettingsFormSchema),
   });
+
+  // Voice token countdown timer
+  useEffect(() => {
+    if (!voiceTokenExpiry) return;
+
+    const updateRemaining = () => {
+      const now = new Date();
+      const remaining = Math.max(0, Math.floor((voiceTokenExpiry.getTime() - now.getTime()) / 1000));
+      setVoiceTokenRemaining(remaining);
+
+      if (remaining === 0) {
+        setVoiceToken(null);
+        setVoiceTokenExpiry(null);
+      }
+    };
+
+    updateRemaining();
+    const interval = setInterval(updateRemaining, 1000);
+    return () => clearInterval(interval);
+  }, [voiceTokenExpiry]);
+
+  // Check for existing token on mount
+  useEffect(() => {
+    const checkExistingToken = async () => {
+      try {
+        const response = await fetch('/api/voice/token');
+        const data = await response.json();
+        if (data.success && data.hasActiveToken) {
+          setVoiceToken(data.token);
+          setVoiceTokenExpiry(new Date(data.expiresAt));
+        }
+      } catch (error) {
+        console.error('Error checking existing token:', error);
+      }
+    };
+    checkExistingToken();
+  }, []);
 
   // Load settings on mount
   useEffect(() => {
@@ -296,6 +342,77 @@ export default function SettingsPage() {
         [currency]: numValue,
       }));
     }
+  };
+
+  // Voice Token Functions
+  const handleGenerateVoiceToken = async () => {
+    setIsGeneratingToken(true);
+    try {
+      const response = await fetch('/api/voice/token', {
+        method: 'POST',
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setVoiceToken(data.token);
+        setVoiceTokenExpiry(new Date(data.expiresAt));
+        toast({
+          title: "Token Generato",
+          description: `Il tuo token vocale è: ${data.token}`,
+        });
+      } else {
+        toast({
+          title: "Errore",
+          description: data.error || "Impossibile generare il token",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error generating voice token:', error);
+      toast({
+        title: "Errore",
+        description: "Errore di connessione",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingToken(false);
+    }
+  };
+
+  const handleInvalidateVoiceToken = async () => {
+    try {
+      const response = await fetch('/api/voice/token', {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setVoiceToken(null);
+        setVoiceTokenExpiry(null);
+        toast({
+          title: "Token Invalidato",
+          description: "Il token vocale è stato invalidato",
+        });
+      }
+    } catch (error) {
+      console.error('Error invalidating voice token:', error);
+    }
+  };
+
+  const handleCopyToken = () => {
+    if (voiceToken) {
+      navigator.clipboard.writeText(voiceToken);
+      toast({
+        title: "Copiato",
+        description: "Token copiato negli appunti",
+      });
+    }
+  };
+
+  const formatTimeRemaining = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (!settings) {
@@ -608,6 +725,98 @@ export default function SettingsPage() {
                   In production, enable it for seamless user experience.
                 </p>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Voice Bot Token */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <MicIcon className="w-5 h-5 mr-2" />
+                Voice Bot Token
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-slate-600">
+                Genera un token vocale per inserire le spese tramite il Voice Bot.
+                Il token è una parola italiana semplice, valida per 15 minuti.
+              </p>
+
+              {voiceToken ? (
+                <div className="space-y-4">
+                  {/* Token Display */}
+                  <div className="p-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg text-white">
+                    <div className="text-center">
+                      <p className="text-sm opacity-80 mb-2">Il tuo token vocale è:</p>
+                      <div className="flex items-center justify-center gap-3">
+                        <span className="text-4xl font-bold tracking-wider uppercase">
+                          {voiceToken}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleCopyToken}
+                          className="text-white hover:bg-white/20"
+                        >
+                          <CopyIcon className="w-5 h-5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Countdown */}
+                  <div className="flex items-center justify-between p-4 bg-slate-100 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Tempo rimanente</p>
+                      <p className="text-2xl font-mono font-bold text-slate-900">
+                        {formatTimeRemaining(voiceTokenRemaining)}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleInvalidateVoiceToken}
+                      className="text-red-600 hover:bg-red-50"
+                    >
+                      <XCircleIcon className="w-4 h-4 mr-2" />
+                      Invalida Token
+                    </Button>
+                  </div>
+
+                  {/* Instructions */}
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                    <h4 className="font-medium text-green-900 mb-1">Come usare il token</h4>
+                    <p className="text-sm text-green-700">
+                      Quando il Voice Bot ti chiede il token, pronuncia la parola "{voiceToken}".
+                      Il token scadrà automaticamente dopo 15 minuti.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Generate Button */}
+                  <Button
+                    type="button"
+                    onClick={handleGenerateVoiceToken}
+                    disabled={isGeneratingToken}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                  >
+                    <MicIcon className="w-4 h-4 mr-2" />
+                    {isGeneratingToken ? "Generazione..." : "Genera Token Vocale"}
+                  </Button>
+
+                  {/* Info */}
+                  <div className="p-3 bg-slate-100 border border-slate-200 rounded-md">
+                    <h4 className="font-medium text-slate-700 mb-1">Nessun token attivo</h4>
+                    <p className="text-sm text-slate-600">
+                      Clicca il pulsante sopra per generare un nuovo token vocale.
+                      Potrai usarlo per inserire le spese tramite il Voice Bot.
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
